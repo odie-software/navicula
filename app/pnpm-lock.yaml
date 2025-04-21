@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@nuxt/eslint':
+        specifier: ^1.3.0
+        version: 1.3.0(@vue/compiler-sfc@3.5.13)(eslint@9.25.1(jiti@2.4.2))(magicast@0.3.5)(typescript@5.8.3)(vite@6.3.2(@types/node@22.14.1)(jiti@2.4.2)(terser@5.39.0)(yaml@2.7.1))
       '@quasar/extras':
         specifier: ^1.16.17
         version: 1.16.17
@@ -30,9 +33,6 @@ importers:
         specifier: ^4.5.0
         version: 4.5.0(vue@3.5.13(typescript@5.8.3))
     devDependencies:
-      '@nuxt/eslint':
-        specifier: ^1.3.0
-        version: 1.3.0(@vue/compiler-sfc@3.5.13)(eslint@9.25.1(jiti@2.4.2))(magicast@0.3.5)(typescript@5.8.3)(vite@6.3.2(@types/node@22.14.1)(jiti@2.4.2)(terser@5.39.0)(yaml@2.7.1))
       '@types/js-yaml':
         specifier: ^4.0.9
         version: 4.0.9
