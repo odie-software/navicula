@@ -1,0 +1,19 @@
+
+services:
+  app:
+    container_name: navicula-dev
+    tmpfs: /tmp
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      # Removed named volume for node_modules to use modules from image build
+      - dev_nuxt:/app/.nuxt
+      - ./app:/app
+      - ./config.yml:/app/config.yml # Mount config.yml
+    ports:
+      - "3000:3000"
+
+volumes:
+  # dev_node_modules: # Removed unused volume definition
+  dev_nuxt:

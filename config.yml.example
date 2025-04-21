@@ -1,0 +1,93 @@
+roles:
+  Admin:
+    description: Full access to all applications
+    permissions:
+      - "*"
+  Power User:
+    description: Access to monitoring and specific infra tools
+    permissions:
+      - cat-monitoring
+      - app-portainer
+  User:
+    description: Access to basic monitoring
+    permissions:
+      - app-uptime
+  Guest:
+    description: Default role with no access
+    permissions: []
+useRemoteAuth: false
+acl:
+  admin@example.com: Admin
+  power@example.com: Power User
+  test@example.com: Power User
+  user@example.com: User
+defaultToolbarColor: primary
+navigationItems:
+  - id: app-dashboard
+    title: Dashboard
+    icon: dashboard
+    url: /dashboard-overview
+    toolbarColor: secondary
+    autoload: true
+  - id: app-vikunja
+    title: Vikunja
+    icon: check
+    url: https://vikunja.homelab
+    toolbarColor: secondary
+    autoload: true
+  - id: cat-media
+    title: Media
+    icon: movie
+    apps:
+      - id: app-sonarr
+        title: Sonarr
+        icon: tv
+        url: https://sonarr.homelab/
+      - id: app-radarr
+        title: Radarr
+        icon: movie
+        url: https://radarr.homelab
+      - id: app-lidarr
+        title: Lidarr
+        icon: mdi-music
+        url: https://lidarr.homelab
+      - id: app-torrent
+        title: Qbittorrent
+        icon: download
+        url: https://qbittorrent.homelab
+      - id: app-nzb
+        title: Nzbget
+        icon: download
+        url: https://nzbget.homelab
+      - id: app-ytdlp
+        title: Yt-dlp
+        icon: mdi-youtube
+        url: https://ytdlp.homelab
+        toolbarColor: "#272727"
+      - id: app-invidious
+        title: Invidious
+        icon: mdi-youtube
+        url: https://invidious.homelab
+        toolbarColor: "#CFBCFF"
+  - id: cat-monitoring
+    title: Monitoring
+    icon: monitor_heart
+    apps:
+      - id: app-grafana
+        title: Grafana
+        icon: show_chart
+        url: http://grafana.example.com
+        autoload: true
+      - id: app-prometheus
+        title: Prometheus
+        icon: timeline
+        url: http://prometh
+  Alt+G: app-grafana
+eus.example.com
+      - id: app-uptime
+        title: Uptime Kuma
+        icon: timer
+        url: http://uptime.example.com
+keybindings:
+  Alt+1: app-dashboard
+  Alt+2: app-vikunja

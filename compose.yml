@@ -1,0 +1,10 @@
+
+services:
+  navicula:
+    container_name: navicula
+    image: ghcr.io/odie-software/navicula:latest
+    volumes:
+      - ./config.yml:/app/config.yml
+    ports:
+      - "3000:3000"
+
