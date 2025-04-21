@@ -82,12 +82,7 @@ navigationItems:
         title: Prometheus
         icon: timeline
         url: http://prometh
-  Alt+G: app-grafana
-eus.example.com
-      - id: app-uptime
-        title: Uptime Kuma
-        icon: timer
-        url: http://uptime.example.com
+
 keybindings:
   Alt+1: app-dashboard
   Alt+2: app-vikunja
