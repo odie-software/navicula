@@ -17,11 +17,11 @@
         flat
         dense
         round
-        @click.stop="$emit('copy-iframe-url')"
         icon="content_copy"
         aria-label="Copy Current Frame URL"
         size="sm"
         class="q-mr-xs"
+        @click.stop="$emit('copy-iframe-url')"
       >
         <q-tooltip>Copy Current Frame URL</q-tooltip>
       </q-btn>
@@ -30,11 +30,11 @@
         flat
         dense
         round
-        @click.stop="$emit('reload-iframe')"
         icon="refresh"
         aria-label="Reload Frame"
         size="sm"
         class="q-mr-xs"
+        @click.stop="$emit('reload-iframe')"
       >
         <q-tooltip>Reload Frame</q-tooltip>
       </q-btn>
@@ -44,11 +44,11 @@
         flat
         dense
         round
-        @click.stop="$emit('swap-window')"
         icon="swap_horiz"
         aria-label="Swap Window Position"
         size="sm"
         class="q-mr-xs"
+        @click.stop="$emit('swap-window')"
       >
         <q-tooltip>Swap with other window</q-tooltip>
       </q-btn>
@@ -57,10 +57,10 @@
         flat
         dense
         round
-        @click.stop="$emit('close-window', appLink.id)"
         icon="close"
         aria-label="Close Window"
         size="sm"
+        @click.stop="$emit('close-window', appLink.id)"
       >
         <q-tooltip>Close</q-tooltip>
       </q-btn>
@@ -73,23 +73,23 @@
         class="app-iframe"
         frameborder="0"
         :title="appLink.title"
-      ></iframe>
+      />
     </q-card-section>
   </q-card>
 </template>
 
 <script lang="ts" setup>
-import { ref, computed } from 'vue';
-import type { PropType } from 'vue';
+import { ref, computed } from 'vue'
+import type { PropType } from 'vue'
 
 interface AppLink {
-  id: string;
-  title: string;
-  icon: string;
-  url: string;
-  toolbarColor?: string;
-  autoload?: boolean;
-  apps?: never;
+  id: string
+  title: string
+  icon: string
+  url: string
+  toolbarColor?: string
+  autoload?: boolean
+  apps?: never
 }
 
 const props = defineProps({
@@ -102,37 +102,47 @@ const props = defineProps({
     required: true,
   },
   defaultToolbarColor: {
-      type: String,
-      default: 'primary'
+    type: String,
+    default: 'primary',
   },
   isActive: {
-      type: Boolean,
-      default: false
+    type: Boolean,
+    default: false,
   },
   // New prop to control swap button visibility
   showSwapButton: {
-      type: Boolean,
-      default: false
-  }
-});
+    type: Boolean,
+    default: false,
+  },
+})
 
 // Added swap-window emit
-defineEmits(['copy-iframe-url', 'reload-iframe', 'activate-window', 'close-window', 'swap-window']);
+defineEmits([
+  'copy-iframe-url',
+  'reload-iframe',
+  'activate-window',
+  'close-window',
+  'swap-window',
+])
 
-const iframeElement = ref<HTMLIFrameElement | null>(null);
+const iframeElement = ref<HTMLIFrameElement | null>(null)
 
 const toolbarClasses = computed(() => {
-  const color = props.appLink.toolbarColor || props.defaultToolbarColor;
-  if (color.startsWith('#') || color.startsWith('rgb') || color.startsWith('hsl') || ['transparent', 'white', 'black'].includes(color)) {
-    return { style: { backgroundColor: color } };
+  const color = props.appLink.toolbarColor || props.defaultToolbarColor
+  if (
+    color.startsWith('#') ||
+    color.startsWith('rgb') ||
+    color.startsWith('hsl') ||
+    ['transparent', 'white', 'black'].includes(color)
+  ) {
+    return { style: { backgroundColor: color } }
   } else {
     // Add text-white for better contrast on Quasar colors
-    return `bg-${color} text-white`;
+    return `bg-${color} text-white`
   }
-});
+})
 
-defineExpose({ iframeElement });
-
+defineExpose({ iframeElement })
 </script>
 
 <style scoped>
@@ -150,7 +160,6 @@ defineExpose({ iframeElement });
   box-shadow: 0 0 10px 2px var(--q-color-primary); /* Highlight active window */
 }
 
-
 .app-iframe {
   display: block;
   border: none;
@@ -160,6 +169,6 @@ defineExpose({ iframeElement });
 
 /* Ensure toolbar buttons are visible */
 .q-toolbar .q-btn {
-    color: inherit; /* Inherit color from toolbar text */
+  color: inherit; /* Inherit color from toolbar text */
 }
 </style>

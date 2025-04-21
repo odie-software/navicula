@@ -5,9 +5,11 @@
 .nitro
 .cache
 dist
+app/.nuxt/
 
 # Node dependencies
 node_modules
+app/node_modules/
 
 # Logs
 logs
@@ -23,5 +25,4 @@ logs
 .env.*
 !.env.example=
 config.yml
-
 .pnpm-store

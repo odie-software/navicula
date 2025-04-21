@@ -7,5 +7,6 @@ env:
 	
 dev:
 	@echo "Starting the dev server..."
-	@docker compose -f compose.dev.yml up -d --force-recreate --build
+	@docker compose -f compose.dev.yml build --no-cache
+	@docker compose -f compose.dev.yml up -d --force-recreate
 	@echo "Navicula is up. Visit http://localhost:3000 to access it."
