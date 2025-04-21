@@ -318,79 +318,208 @@
 </template>
 
 <script lang="ts" setup>
-// Imports (reverting explicit Nuxt imports, trying relative path for component)
-import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted, type Ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useQuasar } from 'quasar'
+import { useQuasar, QSpinner, QLayout, QDrawer, QList, QItem, QItemSection, QIcon, QItemLabel, QBtn, QTooltip, QExpansionItem, QPageContainer, QPage, QSplitter } from 'quasar'
 import AppWindow from '../components/AppWindow.vue' // Use relative path
 
-const $q = useQuasar()
-const route = useRoute()
-const router = useRouter()
-
-// --- Interfaces ---
+/**
+ * Represents a direct link to an application within the navigation.
+ * @interface AppLink
+ */
 interface AppLink {
+  /** Unique identifier for the app link. */
   id: string
+  /** Display title for the app link. */
   title: string
+  /** Material icon name for the app link. */
   icon: string
+  /** URL the app link points to. */
   url: string
+  /** Optional color for the AppWindow toolbar. */
   toolbarColor?: string
+  /** If true, this app should be loaded automatically on startup if no other apps are specified in the URL. */
   autoload?: boolean
+  /** Ensures AppLink doesn't have an 'apps' property. */
   apps?: never
 }
 
+/**
+ * Represents a category containing multiple AppLinks in the navigation.
+ * @interface NavCategory
+ */
 interface NavCategory {
+  /** Unique identifier for the category. */
   id: string
+  /** Display title for the category. */
   title: string
+  /** Material icon name for the category. */
   icon: string
+  /** Array of AppLinks within this category. */
   apps: AppLink[]
+  /** Ensures NavCategory doesn't have a 'toolbarColor' property directly. */
   toolbarColor?: string
+  /** Ensures NavCategory doesn't have a 'url' property. */
   url?: never
 }
 
+/**
+ * Union type representing either an AppLink or a NavCategory.
+ * @typedef {AppLink | NavCategory} NavigationItem
+ */
 type NavigationItem = AppLink | NavCategory
+
+/**
+ * Defines the behavior modes for the navigation drawer.
+ * 'auto-hide': Drawer minimizes and expands on hover.
+ * 'always-open': Drawer stays fully open.
+ * @typedef {'auto-hide' | 'always-open'} DrawerMode
+ */
 type DrawerMode = 'auto-hide' | 'always-open'
 
+/**
+ * Holds information about the current user.
+ * @interface UserInfo
+ */
 interface UserInfo {
+  /** The email address of the logged-in user, or null if anonymous. */
   userEmail: string | null
+  /** The role assigned to the user. */
   role: string
 }
 
+/**
+ * Structure of the response expected from the `/api/config` endpoint.
+ * @interface ConfigResponse
+ */
 interface ConfigResponse {
+  /** The email address of the logged-in user, or null. */
   userEmail: string | null
+  /** The role assigned to the user. */
   role: string
+  /** Array of navigation items (AppLink or NavCategory). */
   navigationItems: NavigationItem[]
+  /** Default color for AppWindow toolbars if not specified per app. */
   defaultToolbarColor: string
+  /** Optional keybindings configuration. Maps key combinations (e.g., "Ctrl+Alt+K") to AppLink IDs. */
   keybindings?: Record<string, string>
+  /** Optional error message if configuration loading failed. */
   error?: string
 }
 
+// --- Composables ---
+const $q = useQuasar()
+const route = useRoute()
+const router = useRouter()
+const config = useRuntimeConfig()
+
+// --- State Refs ---
+
+/** Controls the visibility (open/closed) of the left navigation drawer. */
+const leftDrawerOpen: Ref<boolean> = ref(true)
+/** Controls the mini-mode state of the drawer (true = minimized). */
+const miniState: Ref<boolean> = ref(true)
+/** Current behavior mode of the drawer ('auto-hide' or 'always-open'). */
+const drawerMode: Ref<DrawerMode> = ref('auto-hide')
+/** ID of the currently active AppWindow, or null if none is active. */
+const activeAppId: Ref<string | null> = ref(null)
+/** Array of AppLink IDs currently displayed in AppWindows. */
+const displayedAppIds: Ref<string[]> = ref([])
+/** ID of the previously active AppWindow, used for Alt+Tab switching. */
+const previousActiveAppId: Ref<string | null> = ref(null)
+/** Array of navigation items fetched from the config API. */
+const navigationItems: Ref<NavigationItem[]> = ref([])
+/** User information fetched from the config API. */
+const userInfo: Ref<UserInfo> = ref({ userEmail: null, role: 'Guest' })
+/** Default color for AppWindow toolbars. */
+const defaultToolbarColor: Ref<string> = ref('primary')
+/** References to the AppWindow component instances, keyed by AppLink ID. */
+const appWindowRefs: Ref<Record<string, InstanceType<typeof AppWindow>>> = ref({})
+/** Keybinding configuration fetched from the API. */
+const keybindingsConfig: Ref<Record<string, string>> = ref({})
+/** ID of the navigation item currently being hovered over. */
+const hoveredItemId: Ref<string | null> = ref(null)
+/** Model for the QSplitter component, controlling the split percentage. */
+const splitterModel: Ref<number> = ref(50)
+/** Application version from runtime config. */
+const appVersion: string = config.public.appVersion
+
+// --- API Fetch ---
+
+/**
+ * Fetches the application configuration from the `/api/config` endpoint.
+ * Provides reactive `data`, `pending`, and `error` states.
+ */
+const {
+  data: configData,
+  pending,
+  error,
+} = useFetch<ConfigResponse>('/api/config')
+
+// --- Computed Properties ---
+
+/**
+ * Computes a flat array of all AppLinks available in the navigation,
+ * extracting them from both top-level items and categories.
+ * @returns {AppLink[]} A flat array of all AppLinks.
+ */
+const allAppLinks = computed((): AppLink[] => {
+  const links: AppLink[] = []
+  ;(navigationItems.value || []).forEach((item) => {
+    if (isAppLink(item)) {
+      links.push(item)
+    } else if (isCategory(item)) {
+      links.push(...item.apps)
+    }
+  })
+  return links
+})
+
+/**
+ * Computes a flat array of all AppLinks, maintaining the order they appear
+ * in the navigation menu (top-level and within categories).
+ * Used for sequential keyboard navigation (Alt+Up/Down).
+ * @returns {AppLink[]} A flat array of AppLinks in menu order.
+ */
+const flatAppLinks = computed((): AppLink[] => {
+  const flatList: AppLink[] = []
+  ;(navigationItems.value || []).forEach((item) => {
+    if (isAppLink(item)) {
+      flatList.push(item)
+    } else if (isCategory(item)) {
+      flatList.push(...item.apps)
+    }
+  })
+  return flatList
+})
+
 // --- Type Guards ---
+
+/**
+ * Type guard to check if a NavigationItem is a NavCategory.
+ * @param {NavigationItem} item - The item to check.
+ * @returns {boolean} True if the item is a NavCategory, false otherwise.
+ */
 function isCategory(item: NavigationItem): item is NavCategory {
   return Array.isArray((item as NavCategory).apps)
 }
+
+/**
+ * Type guard to check if a NavigationItem is an AppLink.
+ * @param {NavigationItem} item - The item to check.
+ * @returns {boolean} True if the item is an AppLink, false otherwise.
+ */
 function isAppLink(item: NavigationItem): item is AppLink {
   return typeof (item as AppLink).url === 'string'
 }
 
-// --- Refs ---
-const leftDrawerOpen = ref(true)
-const miniState = ref(true)
-const drawerMode = ref<DrawerMode>('auto-hide')
-const activeAppId = ref<string | null>(null)
-const displayedAppIds = ref<string[]>([])
-const previousActiveAppId = ref<string | null>(null)
-const navigationItems = ref<NavigationItem[]>([])
-const userInfo = ref<UserInfo>({ userEmail: null, role: 'Guest' })
-// const iframeReloadKeys = ref<Record<string, number>>({}); // Removed for keep-alive
-const defaultToolbarColor = ref('primary')
-const appWindowRefs = ref<Record<string, InstanceType<typeof AppWindow>>>({})
-const keybindingsConfig = ref<Record<string, string>>({})
-const hoveredItemId = ref<string | null>(null)
-const splitterModel = ref(50)
-
 // --- Methods ---
-function toggleDrawerMode() {
+
+/**
+ * Toggles the drawer mode between 'auto-hide' and 'always-open'.
+ * Adjusts the miniState accordingly.
+ */
+function toggleDrawerMode(): void {
   drawerMode.value =
     drawerMode.value === 'auto-hide' ? 'always-open' : 'auto-hide'
   if (drawerMode.value === 'always-open') {
@@ -400,30 +529,43 @@ function toggleDrawerMode() {
   }
 }
 
-function handleMouseOver() {
+/**
+ * Handles the mouseover event on the drawer.
+ * Expands the drawer if it's in 'auto-hide' mode.
+ */
+function handleMouseOver(): void {
   if (drawerMode.value === 'auto-hide') {
     miniState.value = false
   }
 }
 
-function handleMouseOut() {
+/**
+ * Handles the mouseout event on the drawer.
+ * Minimizes the drawer if it's in 'auto-hide' mode.
+ */
+function handleMouseOut(): void {
   if (drawerMode.value === 'auto-hide') {
     miniState.value = true
   }
 }
 
-// Selects an item: if already displayed, activate; otherwise, replace active window.
-function selectItem(item: AppLink | null) {
+/**
+ * Selects a navigation item (AppLink).
+ * If the item is already displayed, it activates its window.
+ * If not displayed, it replaces the currently active window with the selected item's window.
+ * If no window is active/displayed, it adds the item as the first window.
+ * Updates the URL query parameters.
+ * @param {AppLink | null} item - The AppLink item to select, or null to deactivate all.
+ */
+function selectItem(item: AppLink | null): void {
   if (!item) {
     activateWindow(null)
     return
   }
 
   if (displayedAppIds.value.includes(item.id)) {
-    // If already displayed, just activate it
     activateWindow(item.id)
   } else {
-    // If not displayed, replace the currently active window (or add if none active/displayed)
     const activeIndex = activeAppId.value
       ? displayedAppIds.value.indexOf(activeAppId.value)
       : -1
@@ -433,29 +575,39 @@ function selectItem(item: AppLink | null) {
       displayedAppIds.value = [item.id]
     }
     activateWindow(item.id)
-    // ensureIframeKey(item.id); // Removed call
   }
   updateQueryParam()
 }
 
-// Adds a window alongside existing ones
-function addWindow(itemToAdd: AppLink) {
+/**
+ * Adds an AppLink's window to the display area.
+ * If two windows are already displayed, the first one is replaced.
+ * If the window is already displayed, it's just activated.
+ * Updates the URL query parameters.
+ * @param {AppLink} itemToAdd - The AppLink whose window should be added.
+ */
+function addWindow(itemToAdd: AppLink): void {
   if (displayedAppIds.value.length >= 2) {
     displayedAppIds.value = [displayedAppIds.value[0]]
   }
 
   if (!displayedAppIds.value.includes(itemToAdd.id)) {
     displayedAppIds.value.push(itemToAdd.id)
-    activateWindow(itemToAdd.id) // Activate the newly added window
-    // ensureIframeKey(itemToAdd.id); // Removed call
+    activateWindow(itemToAdd.id)
     updateQueryParam()
   } else {
-    // If already displayed, just activate it
     activateWindow(itemToAdd.id)
   }
 }
 
-function closeWindow(appIdToClose: string) {
+/**
+ * Closes the AppWindow associated with the given AppLink ID.
+ * Removes the ID from `displayedAppIds` and cleans up the corresponding ref.
+ * Activates the previously active window or the remaining window if necessary.
+ * Updates the URL query parameters.
+ * @param {string} appIdToClose - The ID of the AppLink whose window should be closed.
+ */
+function closeWindow(appIdToClose: string): void {
   const index = displayedAppIds.value.indexOf(appIdToClose)
   if (index > -1) {
     displayedAppIds.value.splice(index, 1)
@@ -477,20 +629,29 @@ function closeWindow(appIdToClose: string) {
   }
 }
 
-function activateWindow(appId: string | null) {
+/**
+ * Sets the active AppWindow.
+ * Updates `activeAppId` and `previousActiveAppId`.
+ * Ensures the activated window is added to `displayedAppIds` if not already present.
+ * Updates the URL query parameters.
+ * @param {string | null} appId - The ID of the AppLink to activate, or null to deactivate.
+ */
+function activateWindow(appId: string | null): void {
   if (activeAppId.value !== appId) {
     previousActiveAppId.value = activeAppId.value
     activeAppId.value = appId
   }
-  // Ensure activated window is displayed
   if (appId && !displayedAppIds.value.includes(appId)) {
     displayedAppIds.value.push(appId)
-    // ensureIframeKey(appId); // Removed call
   }
   updateQueryParam()
 }
 
-function updateQueryParam() {
+/**
+ * Updates the URL query parameters (`apps` and `active`) based on the current state.
+ * Uses `router.replace` to avoid adding history entries.
+ */
+function updateQueryParam(): void {
   const query: Record<string, string | string[]> = {}
   if (displayedAppIds.value.length > 0) {
     query.apps = displayedAppIds.value.join(',')
@@ -499,30 +660,41 @@ function updateQueryParam() {
     query.active = activeAppId.value
   }
   router.replace({ query }).catch((err) => {
-    if (err.name !== 'NavigationDuplicated') {
+    if (err.name !== 'NavigationDuplicated' && err.name !== 'NavigationCancelled') {
       console.error('Router replace error:', err)
     }
   })
 }
 
-function swapWindows() {
+/**
+ * Swaps the positions of the two displayed AppWindows in split view.
+ * Updates the `displayedAppIds` order and the URL query parameters.
+ */
+function swapWindows(): void {
   if (displayedAppIds.value.length === 2) {
     displayedAppIds.value.reverse()
-    updateQueryParam() // Update URL to reflect the new order
+    updateQueryParam()
   }
 }
 
-// Removed ensureIframeKey function definition
-
-function reloadIframe(appId: string) {
-  // iframeReloadKeys.value[appId] = Date.now(); // Removed for keep-alive
-  // Attempt direct reload via ref if possible
+/**
+ * Reloads the iframe content of the specified AppWindow.
+ * Attempts to use the `contentWindow.location.reload()` method.
+ * Shows a notification about the reload attempt.
+ * @param {string} appId - The ID of the AppLink whose iframe should be reloaded.
+ */
+function reloadIframe(appId: string): void {
   const targetWindow = appWindowRefs.value[appId]
   const iframe = targetWindow?.iframeElement
   const app = allAppLinks.value.find((a) => a.id === appId)
-  if (iframe) {
-    iframe.contentWindow?.location.reload()
-    $q.notify({ type: 'info', message: `Reloading ${app?.title}...` })
+  if (iframe?.contentWindow) {
+    try {
+      iframe.contentWindow.location.reload()
+      $q.notify({ type: 'info', message: `Reloading ${app?.title}...` })
+    } catch (e) {
+       console.error(`Error reloading iframe for ${app?.title}:`, e)
+       $q.notify({ type: 'warning', message: `Could not reload ${app?.title} (cross-origin?).` })
+    }
   } else {
     $q.notify({
       type: 'warning',
@@ -531,7 +703,12 @@ function reloadIframe(appId: string) {
   }
 }
 
-async function copyIframeUrl(appId: string) {
+/**
+ * Copies the current URL of the specified AppWindow's iframe to the clipboard.
+ * Only works for same-origin iframes. Shows notifications on success or failure.
+ * @param {string} appId - The ID of the AppLink whose iframe URL should be copied.
+ */
+async function copyIframeUrl(appId: string): Promise<void> {
   const targetWindow = appWindowRefs.value[appId]
   const iframe = targetWindow?.iframeElement
   const appLink = allAppLinks.value.find((a) => a.id === appId)
@@ -559,8 +736,46 @@ async function copyIframeUrl(appId: string) {
   }
 }
 
+/**
+ * Retrieves the AppLink object corresponding to the given ID.
+ * @param {string} id - The ID of the AppLink to find.
+ * @returns {AppLink | undefined} The found AppLink object, or undefined if not found.
+ */
+function getAppLinkById(id: string): AppLink | undefined {
+  return allAppLinks.value.find((app) => app.id === id)
+}
+
+/**
+ * Checks if the URL of an AppLink is considered same-origin relative to the main window.
+ * Handles relative URLs, absolute URLs, and potential errors during URL parsing.
+ * @param {AppLink | null | undefined} appLink - The AppLink to check.
+ * @returns {boolean} True if the URL is same-origin or relative, false otherwise.
+ */
+function isAppLinkSameOrigin(appLink: AppLink | null | undefined): boolean {
+  const url = appLink?.url
+  if (!url) return false
+  // Assume relative paths are same-origin
+  if (!url.startsWith('http://') && !url.startsWith('https://')) return true
+  try {
+    // Compare origins for absolute URLs
+    return new URL(url).origin === window.location.origin
+  } catch {
+    // Invalid URL format
+    return false
+  }
+}
+
 // --- Keybinding Logic ---
-function handleKeydown(event: KeyboardEvent) {
+
+/**
+ * Handles global keydown events for application shortcuts.
+ * - Alt+Tab: Cycle focus between displayed windows.
+ * - Alt+Up/Down: Select previous/next item in the navigation list.
+ * - Custom keybindings (from config): Select the associated AppLink.
+ * @param {KeyboardEvent} event - The keydown event object.
+ */
+function handleKeydown(event: KeyboardEvent): void {
+  // Alt+Tab: Cycle through displayed windows
   if (event.altKey && event.key === 'Tab') {
     event.preventDefault()
     if (displayedAppIds.value.length > 1 && activeAppId.value) {
@@ -571,11 +786,13 @@ function handleKeydown(event: KeyboardEvent) {
       previousActiveAppId.value &&
       displayedAppIds.value.includes(previousActiveAppId.value)
     ) {
+      // Switch back to previous if only one or none active
       activateWindow(previousActiveAppId.value)
     }
     return
   }
 
+  // Alt+ArrowUp/Down: Navigate through flat list of apps
   if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
     event.preventDefault()
     const links = flatAppLinks.value
@@ -588,10 +805,14 @@ function handleKeydown(event: KeyboardEvent) {
 
     if (event.key === 'ArrowDown') {
       nextIndex =
-        currentActiveIndex >= links.length - 1 ? 0 : currentActiveIndex + 1
-    } else {
+        currentActiveIndex === -1 || currentActiveIndex >= links.length - 1
+          ? 0 // Wrap to start
+          : currentActiveIndex + 1
+    } else { // ArrowUp
       nextIndex =
-        currentActiveIndex <= 0 ? links.length - 1 : currentActiveIndex - 1
+        currentActiveIndex === -1 || currentActiveIndex <= 0
+          ? links.length - 1 // Wrap to end
+          : currentActiveIndex - 1
     }
 
     if (nextIndex !== -1 && links[nextIndex]) {
@@ -600,6 +821,7 @@ function handleKeydown(event: KeyboardEvent) {
     return
   }
 
+  // Custom Keybindings
   const keyString = buildKeyString(event)
   const targetAppId = keybindingsConfig.value[keyString]
   if (targetAppId) {
@@ -615,71 +837,48 @@ function handleKeydown(event: KeyboardEvent) {
   }
 }
 
+/**
+ * Constructs a string representation of a key combination from a KeyboardEvent.
+ * Used for matching against the `keybindingsConfig`.
+ * Example: "Ctrl+Alt+K", "Shift+F1", "A"
+ * @param {KeyboardEvent} event - The keyboard event.
+ * @returns {string} The formatted key string, or an empty string if only modifiers were pressed.
+ */
 function buildKeyString(event: KeyboardEvent): string {
   const parts: string[] = []
   if (event.ctrlKey) parts.push('Ctrl')
   if (event.altKey) parts.push('Alt')
   if (event.shiftKey) parts.push('Shift')
-  if (event.metaKey) parts.push('Meta')
+  if (event.metaKey) parts.push('Meta') // Cmd on Mac, Win key on Windows
 
   let key = event.key
+  // Ignore events that are just modifier keys
   if (['Control', 'Shift', 'Alt', 'Meta'].includes(key)) return ''
 
-  if (key.length === 1) key = key.toUpperCase()
+  // Normalize single character keys to uppercase for consistency
+  if (key.length === 1 && key !== key.toLowerCase()) { // Check if it's a letter
+     key = key.toUpperCase()
+  }
+  // Handle special keys like 'ArrowUp', 'Enter', 'Tab', 'F1', etc.
+  // No extra normalization needed for these as `event.key` provides standard names.
 
   parts.push(key)
   return parts.join('+')
 }
 
-// --- API Fetch ---
-// Relying on Nuxt auto-import for useFetch
-const {
-  data: configData,
-  pending,
-  error,
-} = useFetch<ConfigResponse>('/api/config')
-
-// --- Computed Properties ---
-const allAppLinks = computed((): AppLink[] => {
-  const links: AppLink[] = []
-  ;(navigationItems.value || []).forEach((item) => {
-    if (isAppLink(item)) {
-      links.push(item)
-    } else if (isCategory(item)) {
-      links.push(...item.apps)
-    }
-  })
-  return links
-})
-
-const flatAppLinks = computed((): AppLink[] => {
-  const flatList: AppLink[] = []
-  ;(navigationItems.value || []).forEach((item) => {
-    if (isAppLink(item)) {
-      flatList.push(item)
-    } else if (isCategory(item)) {
-      flatList.push(...item.apps)
-    }
-  })
-  return flatList
-})
-
-function getAppLinkById(id: string): AppLink | undefined {
-  return allAppLinks.value.find((app) => app.id === id)
-}
-
-function isAppLinkSameOrigin(appLink: AppLink | null | undefined): boolean {
-  const url = appLink?.url
-  if (!url) return false
-  if (!url.startsWith('http://') && !url.startsWith('https://')) return true
-  try {
-    return new URL(url).origin === window.location.origin
-  } catch {
-    return false
-  }
-}
-
 // --- Watchers ---
+
+/**
+ * Watches the `configData` fetched from the API.
+ * When new config arrives, it updates the component's state:
+ * - Populates `navigationItems`, `userInfo`, `defaultToolbarColor`, `keybindingsConfig`.
+ * - Determines the initial `displayedAppIds` and `activeAppId` based on:
+ *   1. Valid `apps` and `active` query parameters from the URL.
+ *   2. The first `autoload` app specified in the config.
+ *   3. The very first available AppLink in the config.
+ * - Updates the URL query parameters if the initial state differs from the URL.
+ * - Handles potential errors during config loading.
+ */
 watch(
   configData,
   (newConfig) => {
@@ -688,11 +887,13 @@ watch(
       !newConfig.error &&
       Array.isArray(newConfig.navigationItems)
     ) {
+      // Update core state from config
       navigationItems.value = newConfig.navigationItems
       userInfo.value = { userEmail: newConfig.userEmail, role: newConfig.role }
       defaultToolbarColor.value = newConfig.defaultToolbarColor || 'primary'
       keybindingsConfig.value = newConfig.keybindings || {}
 
+      // Find autoload apps
       const autoLoadIds = new Set<string>()
       allAppLinks.value.forEach((app) => {
         if (app.autoload) {
@@ -700,49 +901,43 @@ watch(
         }
       })
 
+      // Get initial state from URL query parameters
       const appsQuery = route.query.apps as string | undefined
       const appsFromQuery = appsQuery ? appsQuery.split(',') : []
       const activeFromQuery = route.query.active as string | undefined
 
+      // Validate query parameters against available apps
       const validAppIdsFromQuery = appsFromQuery.filter((id) =>
         allAppLinks.value.some((app) => app.id === id)
-      )
+      ).slice(0, 2); // Limit to max 2 apps from query
+
       const validActiveIdFromQuery = validAppIdsFromQuery.includes(
         activeFromQuery ?? ''
       )
         ? activeFromQuery
         : null
 
-      // Determine initial displayed apps: Prioritize query, then first autoload, then first app
+      // Determine initial state: Query > Autoload > First App
       let initialDisplayedIds: string[] = []
       let initialActiveId: string | null = null
 
       if (validAppIdsFromQuery.length > 0) {
         initialDisplayedIds = validAppIdsFromQuery
-        initialActiveId =
-          validActiveIdFromQuery || initialDisplayedIds[0] || null
+        initialActiveId = validActiveIdFromQuery || initialDisplayedIds[0] || null
       } else if (autoLoadIds.size > 0) {
-        // Default to showing only the *first* autoload app if query is empty
         const firstAutoload = Array.from(autoLoadIds)[0]
         initialDisplayedIds = [firstAutoload]
         initialActiveId = firstAutoload
       } else if (flatAppLinks.value.length > 0) {
-        // Default to the very first app link if no query and no autoload
         initialDisplayedIds = [flatAppLinks.value[0].id]
         initialActiveId = initialDisplayedIds[0]
       }
 
-      // Corrected logic: Ensure initialDisplayedIds is set before using it
-      if (initialDisplayedIds.length === 0 && flatAppLinks.value.length > 0) {
-        initialDisplayedIds = [flatAppLinks.value[0].id]
-        initialActiveId = initialDisplayedIds[0]
-      }
-
+      // Apply initial state
       displayedAppIds.value = initialDisplayedIds
-      activeAppId.value = initialActiveId // Set active ID after determining displayed IDs
+      activeAppId.value = initialActiveId
 
-      // displayedAppIds.value.forEach(ensureIframeKey); // Removed call
-
+      // Set previous active ID for Alt+Tab
       if (displayedAppIds.value.length > 1 && activeAppId.value) {
         previousActiveAppId.value =
           displayedAppIds.value.find((id) => id !== activeAppId.value) || null
@@ -750,9 +945,11 @@ watch(
         previousActiveAppId.value = null
       }
 
-      // Update URL if initial state differs from query
+      // Ensure URL reflects the final initial state
       updateQueryParam()
+
     } else {
+      // Handle config loading error
       console.error(
         'Failed to load or parse configuration:',
         newConfig?.error || error.value || 'Invalid config format'
@@ -762,176 +959,223 @@ watch(
       displayedAppIds.value = []
       userInfo.value = { userEmail: null, role: 'Error' }
       keybindingsConfig.value = {}
-      updateQueryParam()
+      updateQueryParam() // Clear query params on error
     }
   },
-  { immediate: true }
+  { immediate: true } // Run watcher immediately on component mount
 )
 
+/**
+ * Watches the route query parameters (`apps` and `active`).
+ * Updates the component state (`displayedAppIds`, `activeAppId`) if the query changes,
+ * ensuring the UI stays synchronized with the URL (e.g., browser back/forward).
+ */
 watch(
   () => route.query,
   (newQuery) => {
+    // Avoid reacting to updates triggered by updateQueryParam itself if config isn't loaded yet
+    if (pending.value || !configData.value) return;
+
     const appsQuery = newQuery.apps as string | undefined
     const appsFromQuery = appsQuery ? appsQuery.split(',') : []
     const activeFromQuery = newQuery.active as string | undefined
 
+    // Validate query parameters against available apps
     const validAppIdsFromQuery = appsFromQuery.filter((id) =>
       allAppLinks.value.some((app) => app.id === id)
-    )
+    ).slice(0, 2); // Limit to max 2
+
     const validActiveIdFromQuery = validAppIdsFromQuery.includes(
       activeFromQuery ?? ''
     )
-      ? activeFromQuery
+      ? activeFromQuery ?? null // Ensure undefined becomes null
       : null
 
-    // Check if state needs update based on query changes
-    const stateAppsSorted = [...displayedAppIds.value].sort()
-    const queryAppsSorted = [...validAppIdsFromQuery].sort()
+    // Check if the displayed apps in the state differ from the valid query apps
+    const stateAppsString = displayedAppIds.value.join(',')
+    const queryAppsString = validAppIdsFromQuery.join(',')
 
-    if (JSON.stringify(stateAppsSorted) !== JSON.stringify(queryAppsSorted)) {
+    let stateChanged = false;
+
+    if (stateAppsString !== queryAppsString) {
       displayedAppIds.value = validAppIdsFromQuery
-      // displayedAppIds.value.forEach(ensureIframeKey); // Removed call
-      // If displayed apps change, re-evaluate active app based on new query/displayed list
-      activeAppId.value =
-        validActiveIdFromQuery || displayedAppIds.value[0] || null
+      // If displayed apps change, the active app might need recalculation
+      const newActive = validActiveIdFromQuery || displayedAppIds.value[0] || null;
+      if (activeAppId.value !== newActive) {
+         activateWindow(newActive); // Use activateWindow to handle previousActiveAppId correctly
+      }
+      stateChanged = true;
     } else if (activeAppId.value !== validActiveIdFromQuery) {
       // Only update active ID if displayed apps are the same but active differs
       activateWindow(validActiveIdFromQuery)
+      stateChanged = true;
     }
+
+    // If the state was changed *by the query watcher*, we don't need to call updateQueryParam again.
+    // This check helps prevent potential infinite loops if router.replace triggers the watcher immediately.
+    // Note: This relies on the assumption that updateQueryParam normalizes the query,
+    // so if the watcher is triggered by an external change (back/forward button),
+    // and the state *already* matches the new query, no updateQueryParam call is needed.
   },
-  { deep: true }
+  { deep: true } // Watch nested properties of the query object
 )
 
+
 // --- Lifecycle Hooks ---
+
+/**
+ * Registers the global keydown event listener when the component is mounted.
+ */
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
 })
+
+/**
+ * Removes the global keydown event listener when the component is unmounted
+ * to prevent memory leaks.
+ */
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
 })
 
-// --- Runtime Config & Meta ---
-// Relying on Nuxt auto-import for useRuntimeConfig and definePageMeta
-const config = useRuntimeConfig()
-const appVersion = config.public.appVersion
+// --- Page Meta ---
 
+/**
+ * Defines metadata for the page, such as the title.
+ */
 definePageMeta({
   title: 'Navicula',
 })
 </script>
 
 <style scoped>
+/* Style for the active navigation item */
 .active-item {
-  background-color: rgba(0, 0, 0, 0.1);
+  background-color: rgba(0, 0, 0, 0.1); /* Subtle background highlight */
 }
 
+/* Base item styling */
 .q-item {
-}
-.q-item--dense {
-  padding: 4px 8px;
-  min-height: 32px;
+  /* Add base styles if needed */
 }
 
+/* Dense item styling */
+.q-item--dense {
+  padding: 4px 8px; /* Reduced padding for dense items */
+  min-height: 32px; /* Reduced minimum height */
+}
+
+/* Avatar section styling */
 .q-item__section--avatar {
-  min-width: 40px;
-  padding-right: 16px;
+  min-width: 40px; /* Ensure space for icon */
+  padding-right: 16px; /* Space between icon and text */
 }
 .q-item--dense .q-item__section--avatar {
-  padding-right: 8px;
+  padding-right: 8px; /* Reduced space for dense items */
 }
 
+/* Avatar styling when drawer is in mini mode */
 .q-drawer--mini .q-item__section--avatar {
-  margin: 0 auto;
-  padding-right: 0;
+  margin: 0 auto; /* Center the icon */
+  padding-right: 0; /* No padding needed when centered */
 }
 
+/* Ensure layout takes full height and removes default margins/paddings */
 html,
 body,
 #__nuxt {
   height: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  overflow: hidden; /* Prevent scrollbars on the main layout */
 }
 
+/* Flex container for the main page content */
 .page-flex-container {
   display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
+  flex-direction: column; /* Stack elements vertically */
+  height: 100%; /* Take full available height */
+  overflow: hidden; /* Prevent internal scrolling */
 }
 
+/* Ensure drawer content uses flex column layout */
 .drawer-column .q-drawer__content {
   display: flex;
   flex-direction: column;
 }
 
+/* Utility class for text ellipsis */
 .ellipsis {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: nowrap; /* Prevent text wrapping */
+  overflow: hidden; /* Hide overflow */
+  text-overflow: ellipsis; /* Add '...' for overflow */
 }
 
+/* Container for AppWindow(s) */
 .app-window-container {
   display: flex;
-  flex-direction: row;
-  flex-grow: 1;
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
+  flex-direction: row; /* Arrange windows side-by-side */
+  flex-grow: 1; /* Take remaining vertical space */
+  height: 100%; /* Use full height of parent */
+  width: 100%; /* Use full width of parent */
+  overflow: hidden; /* Hide overflow */
 }
 
+/* Styling for individual AppWindow components within the container */
 .app-window-container > :deep(.app-window) {
-  flex-basis: 0;
-  flex-grow: 1;
-  margin: 2px !important;
-  min-width: 200px;
+  flex-basis: 0; /* Allow flex-grow to distribute space */
+  flex-grow: 1; /* Each window takes equal space initially */
+  margin: 2px !important; /* Small margin around windows (overridden for single/split) */
+  min-width: 200px; /* Minimum width for usability */
 }
 
+/* Positioning and hover effect for the 'Add to view' button */
 .nav-item {
-  position: relative;
+  position: relative; /* Needed for absolute positioning of the button */
 }
 .split-button-container {
   position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
-  opacity: 0;
-  transition: opacity 0.2s ease-in-out;
+  right: 4px; /* Position near the right edge */
+  top: 50%; /* Center vertically */
+  transform: translateY(-50%); /* Fine-tune vertical centering */
+  opacity: 0; /* Hidden by default */
+  transition: opacity 0.2s ease-in-out; /* Smooth fade effect */
 }
 .nav-item:hover .split-button-container {
-  opacity: 1;
+  opacity: 1; /* Show button on hover */
 }
+/* Hide the add button when the drawer is minimized */
 .q-drawer--mini .split-button-container {
   display: none;
 }
 
-/* Style for the splitter */
+/* Styling for the QSplitter component */
 .splitter-container {
-  height: 100%;
-  width: 100%;
-  flex-grow: 1;
-}
-.after-panel-container {
-  display: flex;
-  flex-direction: row;
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-}
-.split-window {
-  height: 100vh;
-  width: 100%;
-  margin: 0 !important;
+  height: 100%; /* Full height */
+  width: 100%; /* Full width */
+  flex-grow: 1; /* Take available space */
 }
 
-/* Ensure single window also takes full space */
+/* Styling for AppWindows within the splitter panels */
+.split-window {
+  height: 100%; /* Full height within the panel */
+  width: 100%; /* Full width within the panel */
+  margin: 0 !important; /* Remove default margin */
+  overflow: hidden; /* Prevent internal scrollbars */
+}
+.split-window > :deep(.app-window) {
+   margin: 0 !important; /* Ensure no margin on the AppWindow itself */
+}
+
+
+/* Ensure single window takes full space without margins */
 .single-window {
   height: 100%;
   width: 100%;
-  display: flex;
+  display: flex; /* Use flex to manage the single child */
 }
 .single-window > :deep(.app-window) {
-  margin: 0 !important;
+  margin: 0 !important; /* Remove margin for single view */
+  flex-grow: 1; /* Ensure it takes all space */
 }
 </style>

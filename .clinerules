@@ -1,0 +1,2 @@
+- Never add inline comments in Nuxt
+- Seperate by concern, not by function type

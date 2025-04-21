@@ -1,5 +1,6 @@
 We follow standard TypeScript best practices (strong typing, interfaces, etc.) combined with Prettier (formatting) and ESLint (linting). For documentation, we use **JSDoc/TSDoc** comment blocks (`/** ... */`).
 
+
 ### JSDoc/TSDoc Comments
 
 JSDoc provides a standardized way to document JavaScript and TypeScript code. TSDoc is a specification built upon JSDoc specifically for TypeScript, enabling richer type information and compatibility with tools like TypeDoc.
