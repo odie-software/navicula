@@ -995,8 +995,6 @@ watch(
     const stateAppsString = displayedAppIds.value.join(',')
     const queryAppsString = validAppIdsFromQuery.join(',')
 
-    let stateChanged = false;
-
     if (stateAppsString !== queryAppsString) {
       displayedAppIds.value = validAppIdsFromQuery
       // If displayed apps change, the active app might need recalculation
@@ -1004,11 +1002,9 @@ watch(
       if (activeAppId.value !== newActive) {
          activateWindow(newActive); // Use activateWindow to handle previousActiveAppId correctly
       }
-      stateChanged = true;
     } else if (activeAppId.value !== validActiveIdFromQuery) {
       // Only update active ID if displayed apps are the same but active differs
       activateWindow(validActiveIdFromQuery)
-      stateChanged = true;
     }
 
     // If the state was changed *by the query watcher*, we don't need to call updateQueryParam again.
