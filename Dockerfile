@@ -6,6 +6,7 @@ WORKDIR /app
 
 # Copy package manager files from the 'app' subdirectory in the build context
 COPY app/package.json ./
+COPY app/pnpm-lock.yml ./
 
 # Install pnpm
 RUN npm install -g pnpm
