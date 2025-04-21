@@ -138,7 +138,7 @@
         >
       </q-item>
 
-      <div style="flex-grow: 1"/>
+      <div style="flex-grow: 1" />
 
       <!-- User Info -->
       <q-item v-if="userInfo.userEmail" class="q-mini-drawer-hide" dense>
@@ -320,7 +320,23 @@
 <script lang="ts" setup>
 import { ref, watch, computed, onMounted, onUnmounted, type Ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useQuasar, QSpinner, QLayout, QDrawer, QList, QItem, QItemSection, QIcon, QItemLabel, QBtn, QTooltip, QExpansionItem, QPageContainer, QPage, QSplitter } from 'quasar'
+import {
+  useQuasar,
+  QSpinner,
+  QLayout,
+  QDrawer,
+  QList,
+  QItem,
+  QItemSection,
+  QIcon,
+  QItemLabel,
+  QBtn,
+  QTooltip,
+  QExpansionItem,
+  QPageContainer,
+  QPage,
+  QSplitter,
+} from 'quasar'
 import AppWindow from '../components/AppWindow.vue' // Use relative path
 
 /**
@@ -434,7 +450,9 @@ const userInfo: Ref<UserInfo> = ref({ userEmail: null, role: 'Guest' })
 /** Default color for AppWindow toolbars. */
 const defaultToolbarColor: Ref<string> = ref('primary')
 /** References to the AppWindow component instances, keyed by AppLink ID. */
-const appWindowRefs: Ref<Record<string, InstanceType<typeof AppWindow>>> = ref({})
+const appWindowRefs: Ref<Record<string, InstanceType<typeof AppWindow>>> = ref(
+  {}
+)
 /** Keybinding configuration fetched from the API. */
 const keybindingsConfig: Ref<Record<string, string>> = ref({})
 /** ID of the navigation item currently being hovered over. */
@@ -660,7 +678,10 @@ function updateQueryParam(): void {
     query.active = activeAppId.value
   }
   router.replace({ query }).catch((err) => {
-    if (err.name !== 'NavigationDuplicated' && err.name !== 'NavigationCancelled') {
+    if (
+      err.name !== 'NavigationDuplicated' &&
+      err.name !== 'NavigationCancelled'
+    ) {
       console.error('Router replace error:', err)
     }
   })
@@ -692,8 +713,11 @@ function reloadIframe(appId: string): void {
       iframe.contentWindow.location.reload()
       $q.notify({ type: 'info', message: `Reloading ${app?.title}...` })
     } catch (e) {
-       console.error(`Error reloading iframe for ${app?.title}:`, e)
-       $q.notify({ type: 'warning', message: `Could not reload ${app?.title} (cross-origin?).` })
+      console.error(`Error reloading iframe for ${app?.title}:`, e)
+      $q.notify({
+        type: 'warning',
+        message: `Could not reload ${app?.title} (cross-origin?).`,
+      })
     }
   } else {
     $q.notify({
@@ -808,7 +832,8 @@ function handleKeydown(event: KeyboardEvent): void {
         currentActiveIndex === -1 || currentActiveIndex >= links.length - 1
           ? 0 // Wrap to start
           : currentActiveIndex + 1
-    } else { // ArrowUp
+    } else {
+      // ArrowUp
       nextIndex =
         currentActiveIndex === -1 || currentActiveIndex <= 0
           ? links.length - 1 // Wrap to end
@@ -856,8 +881,9 @@ function buildKeyString(event: KeyboardEvent): string {
   if (['Control', 'Shift', 'Alt', 'Meta'].includes(key)) return ''
 
   // Normalize single character keys to uppercase for consistency
-  if (key.length === 1 && key !== key.toLowerCase()) { // Check if it's a letter
-     key = key.toUpperCase()
+  if (key.length === 1 && key !== key.toLowerCase()) {
+    // Check if it's a letter
+    key = key.toUpperCase()
   }
   // Handle special keys like 'ArrowUp', 'Enter', 'Tab', 'F1', etc.
   // No extra normalization needed for these as `event.key` provides standard names.
@@ -907,9 +933,9 @@ watch(
       const activeFromQuery = route.query.active as string | undefined
 
       // Validate query parameters against available apps
-      const validAppIdsFromQuery = appsFromQuery.filter((id) =>
-        allAppLinks.value.some((app) => app.id === id)
-      ).slice(0, 2); // Limit to max 2 apps from query
+      const validAppIdsFromQuery = appsFromQuery
+        .filter((id) => allAppLinks.value.some((app) => app.id === id))
+        .slice(0, 2) // Limit to max 2 apps from query
 
       const validActiveIdFromQuery = validAppIdsFromQuery.includes(
         activeFromQuery ?? ''
@@ -923,7 +949,8 @@ watch(
 
       if (validAppIdsFromQuery.length > 0) {
         initialDisplayedIds = validAppIdsFromQuery
-        initialActiveId = validActiveIdFromQuery || initialDisplayedIds[0] || null
+        initialActiveId =
+          validActiveIdFromQuery || initialDisplayedIds[0] || null
       } else if (autoLoadIds.size > 0) {
         const firstAutoload = Array.from(autoLoadIds)[0]
         initialDisplayedIds = [firstAutoload]
@@ -947,7 +974,6 @@ watch(
 
       // Ensure URL reflects the final initial state
       updateQueryParam()
-
     } else {
       // Handle config loading error
       console.error(
@@ -974,21 +1000,21 @@ watch(
   () => route.query,
   (newQuery) => {
     // Avoid reacting to updates triggered by updateQueryParam itself if config isn't loaded yet
-    if (pending.value || !configData.value) return;
+    if (pending.value || !configData.value) return
 
     const appsQuery = newQuery.apps as string | undefined
     const appsFromQuery = appsQuery ? appsQuery.split(',') : []
     const activeFromQuery = newQuery.active as string | undefined
 
     // Validate query parameters against available apps
-    const validAppIdsFromQuery = appsFromQuery.filter((id) =>
-      allAppLinks.value.some((app) => app.id === id)
-    ).slice(0, 2); // Limit to max 2
+    const validAppIdsFromQuery = appsFromQuery
+      .filter((id) => allAppLinks.value.some((app) => app.id === id))
+      .slice(0, 2) // Limit to max 2
 
     const validActiveIdFromQuery = validAppIdsFromQuery.includes(
       activeFromQuery ?? ''
     )
-      ? activeFromQuery ?? null // Ensure undefined becomes null
+      ? (activeFromQuery ?? null) // Ensure undefined becomes null
       : null
 
     // Check if the displayed apps in the state differ from the valid query apps
@@ -998,9 +1024,10 @@ watch(
     if (stateAppsString !== queryAppsString) {
       displayedAppIds.value = validAppIdsFromQuery
       // If displayed apps change, the active app might need recalculation
-      const newActive = validActiveIdFromQuery || displayedAppIds.value[0] || null;
+      const newActive =
+        validActiveIdFromQuery || displayedAppIds.value[0] || null
       if (activeAppId.value !== newActive) {
-         activateWindow(newActive); // Use activateWindow to handle previousActiveAppId correctly
+        activateWindow(newActive) // Use activateWindow to handle previousActiveAppId correctly
       }
     } else if (activeAppId.value !== validActiveIdFromQuery) {
       // Only update active ID if displayed apps are the same but active differs
@@ -1015,7 +1042,6 @@ watch(
   },
   { deep: true } // Watch nested properties of the query object
 )
-
 
 // --- Lifecycle Hooks ---
 
@@ -1160,9 +1186,8 @@ body,
   overflow: hidden; /* Prevent internal scrollbars */
 }
 .split-window > :deep(.app-window) {
-   margin: 0 !important; /* Ensure no margin on the AppWindow itself */
+  margin: 0 !important; /* Ensure no margin on the AppWindow itself */
 }
-
 
 /* Ensure single window takes full space without margins */
 .single-window {
