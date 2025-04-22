@@ -5,23 +5,19 @@ name: CI - Build and Push Docker Image
 # Controls when the workflow will run
 on:
   push:
-    branches: [ "main" ] # Run on pushes to the main branch
-  # Optional: Run on Pull Requests to main (builds but doesn't push)
-  # pull_request:
-  #   branches: [ "main" ]
+    branches:
+      - main # Run on pushes to the main branch
+    tags:
+      - nightly # Run on pushes to the 'nightly' tag
+  release:
+    types: [created] # Run when a new release is created
   # Optional: Allow manual runs from the Actions tab
   workflow_dispatch:
 
 # Environment variables available to all jobs and steps
 env:
-  # CHANGE THESE: Replace with your details
-  # Option 1: GitHub Container Registry (ghcr.io)
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }} # Format: ghcr.io/USERNAME/REPOSITORY or ghcr.io/ORG/REPOSITORY
-
-  # Option 2: Docker Hub (Uncomment below and comment out Option 1)
-  # REGISTRY: docker.io
-  # IMAGE_NAME: YOUR_DOCKERHUB_USERNAME/YOUR_IMAGE_NAME # Format: docker.io/USERNAME/IMAGENAME
 
 jobs:
   build-and-push:
@@ -94,15 +90,16 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/odie-software/navicula
-          # Example Tags:
-          # - type=schedule
-          # - type=ref,event=branch
-          # - type=ref,event=pr
-          # - type=semver,pattern={{version}}
-          # - type=semver,pattern={{major}}.{{minor}}
-          # - type=semver,pattern={{major}}
-          # - type=sha # Adds the git short SHA as a tag
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} # Use defined env vars
+          tags: |
+            # Push to main branch or nightly tag -> nightly tag
+            type=raw,value=nightly,enable=${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/tags/nightly') }}
+            # Release created -> stable tag
+            type=raw,value=stable,enable=${{ github.event_name == 'release' }}
+            # Release created -> latest tag
+            type=raw,value=latest,enable=${{ github.event_name == 'release' }}
+            # Optional: Add git sha tag for all pushes/releases for traceability
+            type=sha,prefix=sha-,enable=${{ github.event_name == 'push' || github.event_name == 'release' }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3 # This action creates a BuildKit builder instance
