@@ -1,5 +1,5 @@
 <template>
-  <q-layout view="lHh Lpr lFf" class="bg-white">
+  <q-layout view="lHh Lpr lFf">
     <q-drawer
       v-model="leftDrawerOpen"
       :mini="drawerMode === 'auto-hide' && miniState"
@@ -15,7 +15,7 @@
           <q-item
             v-if="isAppLink(item)"
             clickable
-            :active="activeAppId === item.id && displayedAppIds.length === 1"
+            :active="activeAppId === item.id && loadedAppIds.length === 1"
             active-class="active-item"
             class="nav-item"
             @click="selectItem(item)"
@@ -37,8 +37,8 @@
               <q-btn
                 v-show="
                   hoveredItemId === item.id &&
-                  !displayedAppIds.includes(item.id) &&
-                  displayedAppIds.length > 0
+                  !loadedAppIds.includes(item.id) &&
+                  loadedAppIds.length > 0
                 "
                 flat
                 dense
@@ -75,7 +75,7 @@
                 v-for="app in item.apps"
                 :key="app.id"
                 clickable
-                :active="activeAppId === app.id && displayedAppIds.length === 1"
+                :active="activeAppId === app.id && loadedAppIds.length === 1"
                 active-class="active-item"
                 dense
                 class="nav-item"
@@ -100,8 +100,8 @@
                   <q-btn
                     v-show="
                       hoveredItemId === app.id &&
-                      !displayedAppIds.includes(app.id) &&
-                      displayedAppIds.length > 0
+                      !loadedAppIds.includes(app.id) &&
+                      loadedAppIds.length > 0
                     "
                     flat
                     dense
@@ -200,106 +200,39 @@
 
     <q-page-container>
       <q-page class="page-flex-container">
-        <!-- Single Window View -->
-        <div
-          v-if="displayedAppIds.length === 1"
-          class="app-window-container single-window"
-        >
-          <keep-alive>
-            <AppWindow
-              v-if="getAppLinkById(displayedAppIds[0])"
-              :ref="
-                (el: any) => {
-                  if (el)
-                    appWindowRefs[displayedAppIds[0]] = el as InstanceType<
-                      typeof AppWindow
-                    >
+        <!-- Use ViewSplitter to manage AppWindows -->
+        <view-splitter v-show="loadedAppIds.length > 0" style="flex-grow: 1">
+          <AppWindow
+            v-for="appId in activeAppIds"
+            v-show="loadedAppIds.includes(appId)"
+            :ref="
+              (el: any) => {
+                // Ensure refs are correctly assigned/removed
+                if (el) {
+                  appWindowRefs[appId] = el as InstanceType<typeof AppWindow>
+                } else {
+                  // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+                  delete appWindowRefs[appId]
                 }
-              "
-              :key="displayedAppIds[0]"
-              :app-link="getAppLinkById(displayedAppIds[0])!"
-              :is-active="true"
-              :is-same-origin="
-                isAppLinkSameOrigin(getAppLinkById(displayedAppIds[0]))
-              "
-              :default-toolbar-color="defaultToolbarColor"
-              @activate-window="activateWindow"
-              @close-window="closeWindow"
-              @copy-iframe-url="copyIframeUrl(displayedAppIds[0])"
-              @reload-iframe="reloadIframe(displayedAppIds[0])"
-            />
-          </keep-alive>
-        </div>
-        <!-- Split View (for exactly 2 windows) -->
-        <q-splitter
-          v-else-if="displayedAppIds.length === 2"
-          v-model="splitterModel"
-          class="splitter-container"
-          unit="%"
-          style="flex-grow: 1"
-        >
-          <template #before>
-            <keep-alive>
-              <AppWindow
-                v-if="getAppLinkById(displayedAppIds[0])"
-                :ref="
-                  (el: any) => {
-                    if (el)
-                      appWindowRefs[displayedAppIds[0]] = el as InstanceType<
-                        typeof AppWindow
-                      >
-                  }
-                "
-                :key="displayedAppIds[0]"
-                :app-link="getAppLinkById(displayedAppIds[0])!"
-                :is-active="activeAppId === displayedAppIds[0]"
-                :is-same-origin="
-                  isAppLinkSameOrigin(getAppLinkById(displayedAppIds[0]))
-                "
-                :default-toolbar-color="defaultToolbarColor"
-                :show-swap-button="activeAppId === displayedAppIds[0]"
-                class="split-window"
-                @activate-window="activateWindow"
-                @close-window="closeWindow"
-                @copy-iframe-url="copyIframeUrl(displayedAppIds[0])"
-                @reload-iframe="reloadIframe(displayedAppIds[0])"
-                @swap-window="swapWindows"
-              />
-            </keep-alive>
-          </template>
-          <template #after>
-            <keep-alive>
-              <AppWindow
-                v-if="getAppLinkById(displayedAppIds[1])"
-                :ref="
-                  (el: any) => {
-                    if (el)
-                      appWindowRefs[displayedAppIds[1]] = el as InstanceType<
-                        typeof AppWindow
-                      >
-                  }
-                "
-                :key="displayedAppIds[1]"
-                :app-link="getAppLinkById(displayedAppIds[1])!"
-                :is-active="activeAppId === displayedAppIds[1]"
-                :is-same-origin="
-                  isAppLinkSameOrigin(getAppLinkById(displayedAppIds[1]))
-                "
-                :default-toolbar-color="defaultToolbarColor"
-                :show-swap-button="activeAppId === displayedAppIds[1]"
-                class="split-window"
-                @activate-window="activateWindow"
-                @close-window="closeWindow"
-                @copy-iframe-url="copyIframeUrl(displayedAppIds[1])"
-                @reload-iframe="reloadIframe(displayedAppIds[1])"
-                @swap-window="swapWindows"
-              />
-            </keep-alive>
-          </template>
-        </q-splitter>
-        <!-- Placeholder when no windows are open -->
+              }
+            "
+            :key="appId"
+            :app-link="getAppLinkById(appId)!"
+            :is-active="activeAppId === appId"
+            :is-same-origin="isAppLinkSameOrigin(getAppLinkById(appId))"
+            :default-toolbar-color="defaultToolbarColor"
+            :show-swap-button="loadedAppIds.length > 1 && activeAppId === appId"
+            @activate-window="activateWindow(appId)"
+            @close-window="closeWindow(appId)"
+            @copy-iframe-url="copyIframeUrl(appId)"
+            @reload-iframe="reloadIframe(appId)"
+            @swap-window="swapWindows" 
+          />
+        </view-splitter>
+
+        <!-- Placeholder when no apps are displayed -->
         <div
-          v-else-if="displayedAppIds.length === 0 && !pending"
+          v-show="loadedAppIds.length === 0 && !pending"
           class="flex flex-center text-h6 text-grey-7"
           style="height: 100%"
         >
@@ -335,9 +268,9 @@ import {
   QExpansionItem,
   QPageContainer,
   QPage,
-  QSplitter,
 } from 'quasar'
 import AppWindow from '../components/AppWindow.vue' // Use relative path
+import ViewSplitter from '../components/ViewSplitter.vue' // Import the new component
 
 /**
  * Represents a direct link to an application within the navigation.
@@ -439,8 +372,10 @@ const miniState: Ref<boolean> = ref(true)
 const drawerMode: Ref<DrawerMode> = ref('auto-hide')
 /** ID of the currently active AppWindow, or null if none is active. */
 const activeAppId: Ref<string | null> = ref(null)
+/** Array of AppLink IDs currently active in AppWindows. */
+const activeAppIds: Ref<string[]> = ref([])
 /** Array of AppLink IDs currently displayed in AppWindows. */
-const displayedAppIds: Ref<string[]> = ref([])
+const loadedAppIds: Ref<string[]> = ref([])
 /** ID of the previously active AppWindow, used for Alt+Tab switching. */
 const previousActiveAppId: Ref<string | null> = ref(null)
 /** Array of navigation items fetched from the config API. */
@@ -457,8 +392,6 @@ const appWindowRefs: Ref<Record<string, InstanceType<typeof AppWindow>>> = ref(
 const keybindingsConfig: Ref<Record<string, string>> = ref({})
 /** ID of the navigation item currently being hovered over. */
 const hoveredItemId: Ref<string | null> = ref(null)
-/** Model for the QSplitter component, controlling the split percentage. */
-const splitterModel: Ref<number> = ref(50)
 /** Application version from runtime config. */
 const appVersion: string = config.public.appVersion
 
@@ -581,16 +514,16 @@ function selectItem(item: AppLink | null): void {
     return
   }
 
-  if (displayedAppIds.value.includes(item.id)) {
+  if (loadedAppIds.value.includes(item.id)) {
     activateWindow(item.id)
   } else {
     const activeIndex = activeAppId.value
-      ? displayedAppIds.value.indexOf(activeAppId.value)
+      ? loadedAppIds.value.indexOf(activeAppId.value)
       : -1
-    if (activeIndex !== -1 && displayedAppIds.value.length > 0) {
-      displayedAppIds.value.splice(activeIndex, 1, item.id)
+    if (activeIndex !== -1 && loadedAppIds.value.length > 0) {
+      loadedAppIds.value.splice(activeIndex, 1, item.id)
     } else {
-      displayedAppIds.value = [item.id]
+      loadedAppIds.value = [item.id]
     }
     activateWindow(item.id)
   }
@@ -605,39 +538,43 @@ function selectItem(item: AppLink | null): void {
  * @param {AppLink} itemToAdd - The AppLink whose window should be added.
  */
 function addWindow(itemToAdd: AppLink): void {
-  if (displayedAppIds.value.length >= 2) {
-    displayedAppIds.value = [displayedAppIds.value[0]]
+  if (!loadedAppIds.value.includes(itemToAdd.id)) {
+    loadedAppIds.value.push(itemToAdd.id)
   }
 
-  if (!displayedAppIds.value.includes(itemToAdd.id)) {
-    displayedAppIds.value.push(itemToAdd.id)
-    activateWindow(itemToAdd.id)
-    updateQueryParam()
-  } else {
-    activateWindow(itemToAdd.id)
+  if (!activeAppIds.value.includes(itemToAdd.id)) {
+    activeAppIds.value.push(itemToAdd.id)
   }
+  updateQueryParam()
 }
 
 /**
  * Closes the AppWindow associated with the given AppLink ID.
- * Removes the ID from `displayedAppIds` and cleans up the corresponding ref.
+ * Removes the ID from `loadedAppIds` and cleans up the corresponding ref.
  * Activates the previously active window or the remaining window if necessary.
  * Updates the URL query parameters.
  * @param {string} appIdToClose - The ID of the AppLink whose window should be closed.
  */
 function closeWindow(appIdToClose: string): void {
-  const index = displayedAppIds.value.indexOf(appIdToClose)
+  // Remove from `activeAppIds` if present
+  const activeIndex = activeAppIds.value.indexOf(appIdToClose)
+  if (activeIndex > -1) {
+    activeAppIds.value.splice(activeIndex, 1)
+  }
+  
+  const index = loadedAppIds.value.indexOf(appIdToClose)
+  
   if (index > -1) {
-    displayedAppIds.value.splice(index, 1)
+    loadedAppIds.value.splice(index, 1)
     // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
     delete appWindowRefs.value[appIdToClose]
 
     if (activeAppId.value === appIdToClose) {
       const newActiveId =
         previousActiveAppId.value &&
-        displayedAppIds.value.includes(previousActiveAppId.value)
+        loadedAppIds.value.includes(previousActiveAppId.value)
           ? previousActiveAppId.value
-          : (displayedAppIds.value[0] ?? null)
+          : (loadedAppIds.value[0] ?? null)
       activateWindow(newActiveId)
     }
     if (previousActiveAppId.value === appIdToClose) {
@@ -650,18 +587,14 @@ function closeWindow(appIdToClose: string): void {
 /**
  * Sets the active AppWindow.
  * Updates `activeAppId` and `previousActiveAppId`.
- * Ensures the activated window is added to `displayedAppIds` if not already present.
+ * Ensures the activated window is added to `loadedAppIds` if not already present.
  * Updates the URL query parameters.
  * @param {string | null} appId - The ID of the AppLink to activate, or null to deactivate.
  */
 function activateWindow(appId: string | null): void {
-  if (activeAppId.value !== appId) {
-    previousActiveAppId.value = activeAppId.value
-    activeAppId.value = appId
-  }
-  if (appId && !displayedAppIds.value.includes(appId)) {
-    displayedAppIds.value.push(appId)
-  }
+  activeAppIds.value = [appId]
+
+  // Update URL regardless of activation/deactivation
   updateQueryParam()
 }
 
@@ -671,12 +604,11 @@ function activateWindow(appId: string | null): void {
  */
 function updateQueryParam(): void {
   const query: Record<string, string | string[]> = {}
-  if (displayedAppIds.value.length > 0) {
-    query.apps = displayedAppIds.value.join(',')
+  console.log(activeAppIds.value)
+  if (activeAppIds.value.length > 0) {
+    query.apps = activeAppIds.value.join(',')
   }
-  if (activeAppId.value) {
-    query.active = activeAppId.value
-  }
+  // No need to explicitly delete 'active' if null, router.replace handles it.
   router.replace({ query }).catch((err) => {
     if (
       err.name !== 'NavigationDuplicated' &&
@@ -689,12 +621,17 @@ function updateQueryParam(): void {
 
 /**
  * Swaps the positions of the two displayed AppWindows in split view.
- * Updates the `displayedAppIds` order and the URL query parameters.
+ * Updates the `loadedAppIds` order and the URL query parameters.
+ * Note: This currently only swaps the first two if more than two are displayed.
  */
 function swapWindows(): void {
-  if (displayedAppIds.value.length === 2) {
-    displayedAppIds.value.reverse()
-    updateQueryParam()
+  if (loadedAppIds.value.length >= 2) {
+    // Simple swap of the first two elements
+    const temp = loadedAppIds.value[0];
+    loadedAppIds.value[0] = loadedAppIds.value[1];
+    loadedAppIds.value[1] = temp;
+    // The watcher on loadedAppIds or updateQueryParam call will handle reactivity
+    updateQueryParam() // Ensure URL reflects the new order
   }
 }
 
@@ -802,13 +739,13 @@ function handleKeydown(event: KeyboardEvent): void {
   // Alt+Tab: Cycle through displayed windows
   if (event.altKey && event.key === 'Tab') {
     event.preventDefault()
-    if (displayedAppIds.value.length > 1 && activeAppId.value) {
-      const currentIndex = displayedAppIds.value.indexOf(activeAppId.value)
-      const nextIndex = (currentIndex + 1) % displayedAppIds.value.length
-      activateWindow(displayedAppIds.value[nextIndex])
+    if (loadedAppIds.value.length > 1 && activeAppId.value) {
+      const currentIndex = loadedAppIds.value.indexOf(activeAppId.value)
+      const nextIndex = (currentIndex + 1) % loadedAppIds.value.length
+      activateWindow(loadedAppIds.value[nextIndex])
     } else if (
       previousActiveAppId.value &&
-      displayedAppIds.value.includes(previousActiveAppId.value)
+      loadedAppIds.value.includes(previousActiveAppId.value)
     ) {
       // Switch back to previous if only one or none active
       activateWindow(previousActiveAppId.value)
@@ -898,7 +835,7 @@ function buildKeyString(event: KeyboardEvent): string {
  * Watches the `configData` fetched from the API.
  * When new config arrives, it updates the component's state:
  * - Populates `navigationItems`, `userInfo`, `defaultToolbarColor`, `keybindingsConfig`.
- * - Determines the initial `displayedAppIds` and `activeAppId` based on:
+ * - Determines the initial `loadedAppIds` and `activeAppId` based on:
  *   1. Valid `apps` and `active` query parameters from the URL.
  *   2. The first `autoload` app specified in the config.
  *   3. The very first available AppLink in the config.
@@ -945,32 +882,19 @@ watch(
 
       // Determine initial state: Query > Autoload > First App
       let initialDisplayedIds: string[] = []
-      let initialActiveId: string | null = null
 
       if (validAppIdsFromQuery.length > 0) {
         initialDisplayedIds = validAppIdsFromQuery
-        initialActiveId =
-          validActiveIdFromQuery || initialDisplayedIds[0] || null
       } else if (autoLoadIds.size > 0) {
         const firstAutoload = Array.from(autoLoadIds)[0]
         initialDisplayedIds = [firstAutoload]
-        initialActiveId = firstAutoload
       } else if (flatAppLinks.value.length > 0) {
         initialDisplayedIds = [flatAppLinks.value[0].id]
-        initialActiveId = initialDisplayedIds[0]
       }
 
       // Apply initial state
-      displayedAppIds.value = initialDisplayedIds
-      activeAppId.value = initialActiveId
-
-      // Set previous active ID for Alt+Tab
-      if (displayedAppIds.value.length > 1 && activeAppId.value) {
-        previousActiveAppId.value =
-          displayedAppIds.value.find((id) => id !== activeAppId.value) || null
-      } else {
-        previousActiveAppId.value = null
-      }
+      loadedAppIds.value = initialDisplayedIds
+      activeAppIds.value = initialDisplayedIds
 
       // Ensure URL reflects the final initial state
       updateQueryParam()
@@ -982,7 +906,7 @@ watch(
       )
       navigationItems.value = []
       activeAppId.value = null
-      displayedAppIds.value = []
+      loadedAppIds.value = []
       userInfo.value = { userEmail: null, role: 'Error' }
       keybindingsConfig.value = {}
       updateQueryParam() // Clear query params on error
@@ -993,7 +917,7 @@ watch(
 
 /**
  * Watches the route query parameters (`apps` and `active`).
- * Updates the component state (`displayedAppIds`, `activeAppId`) if the query changes,
+ * Updates the component state (`loadedAppIds`, `activeAppId`) if the query changes,
  * ensuring the UI stays synchronized with the URL (e.g., browser back/forward).
  */
 watch(
@@ -1009,7 +933,6 @@ watch(
     // Validate query parameters against available apps
     const validAppIdsFromQuery = appsFromQuery
       .filter((id) => allAppLinks.value.some((app) => app.id === id))
-      .slice(0, 2) // Limit to max 2
 
     const validActiveIdFromQuery = validAppIdsFromQuery.includes(
       activeFromQuery ?? ''
@@ -1018,14 +941,14 @@ watch(
       : null
 
     // Check if the displayed apps in the state differ from the valid query apps
-    const stateAppsString = displayedAppIds.value.join(',')
+    const stateAppsString = loadedAppIds.value.join(',')
     const queryAppsString = validAppIdsFromQuery.join(',')
 
     if (stateAppsString !== queryAppsString) {
-      displayedAppIds.value = validAppIdsFromQuery
+      loadedAppIds.value = validAppIdsFromQuery
       // If displayed apps change, the active app might need recalculation
       const newActive =
-        validActiveIdFromQuery || displayedAppIds.value[0] || null
+        validActiveIdFromQuery || loadedAppIds.value[0] || null
       if (activeAppId.value !== newActive) {
         activateWindow(newActive) // Use activateWindow to handle previousActiveAppId correctly
       }
@@ -1133,24 +1056,6 @@ body,
   text-overflow: ellipsis; /* Add '...' for overflow */
 }
 
-/* Container for AppWindow(s) */
-.app-window-container {
-  display: flex;
-  flex-direction: row; /* Arrange windows side-by-side */
-  flex-grow: 1; /* Take remaining vertical space */
-  height: 100%; /* Use full height of parent */
-  width: 100%; /* Use full width of parent */
-  overflow: hidden; /* Hide overflow */
-}
-
-/* Styling for individual AppWindow components within the container */
-.app-window-container > :deep(.app-window) {
-  flex-basis: 0; /* Allow flex-grow to distribute space */
-  flex-grow: 1; /* Each window takes equal space initially */
-  margin: 2px !important; /* Small margin around windows (overridden for single/split) */
-  min-width: 200px; /* Minimum width for usability */
-}
-
 /* Positioning and hover effect for the 'Add to view' button */
 .nav-item {
   position: relative; /* Needed for absolute positioning of the button */
@@ -1169,34 +1074,5 @@ body,
 /* Hide the add button when the drawer is minimized */
 .q-drawer--mini .split-button-container {
   display: none;
-}
-
-/* Styling for the QSplitter component */
-.splitter-container {
-  height: 100%; /* Full height */
-  width: 100%; /* Full width */
-  flex-grow: 1; /* Take available space */
-}
-
-/* Styling for AppWindows within the splitter panels */
-.split-window {
-  height: 100%; /* Full height within the panel */
-  width: 100%; /* Full width within the panel */
-  margin: 0 !important; /* Remove default margin */
-  overflow: hidden; /* Prevent internal scrollbars */
-}
-.split-window > :deep(.app-window) {
-  margin: 0 !important; /* Ensure no margin on the AppWindow itself */
-}
-
-/* Ensure single window takes full space without margins */
-.single-window {
-  height: 100%;
-  width: 100%;
-  display: flex; /* Use flex to manage the single child */
-}
-.single-window > :deep(.app-window) {
-  margin: 0 !important; /* Remove margin for single view */
-  flex-grow: 1; /* Ensure it takes all space */
 }
 </style>

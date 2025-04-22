@@ -7,6 +7,7 @@ Navicula is the dashboard for your homelab/small team/etc. It is a place to orga
 * Easily configurable via config.yml
 * Supports remote user proxying (i.e. oauth2-proxy) with RBAC
 * Ability to split windows
+* Dark mode
 
 # Roadmap
 * Tabs/saved views
