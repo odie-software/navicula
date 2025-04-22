@@ -11,5 +11,5 @@ dev:
 
 lint:
 	@echo "Running linter..."
-	@cd app/ && npx pnpm lint && npx pnpm format:fix
+	@cd app/ && npx pnpm lint:fix && npx pnpm format:fix
 	@echo "Linting complete."

@@ -226,7 +226,7 @@
             @close-window="closeWindow(appId)"
             @copy-iframe-url="copyIframeUrl(appId)"
             @reload-iframe="reloadIframe(appId)"
-            @swap-window="swapWindows" 
+            @swap-window="swapWindows"
           />
         </view-splitter>
 
@@ -561,9 +561,9 @@ function closeWindow(appIdToClose: string): void {
   if (activeIndex > -1) {
     activeAppIds.value.splice(activeIndex, 1)
   }
-  
+
   const index = loadedAppIds.value.indexOf(appIdToClose)
-  
+
   if (index > -1) {
     loadedAppIds.value.splice(index, 1)
     // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
@@ -627,9 +627,9 @@ function updateQueryParam(): void {
 function swapWindows(): void {
   if (loadedAppIds.value.length >= 2) {
     // Simple swap of the first two elements
-    const temp = loadedAppIds.value[0];
-    loadedAppIds.value[0] = loadedAppIds.value[1];
-    loadedAppIds.value[1] = temp;
+    const temp = loadedAppIds.value[0]
+    loadedAppIds.value[0] = loadedAppIds.value[1]
+    loadedAppIds.value[1] = temp
     // The watcher on loadedAppIds or updateQueryParam call will handle reactivity
     updateQueryParam() // Ensure URL reflects the new order
   }
@@ -867,18 +867,11 @@ watch(
       // Get initial state from URL query parameters
       const appsQuery = route.query.apps as string | undefined
       const appsFromQuery = appsQuery ? appsQuery.split(',') : []
-      const activeFromQuery = route.query.active as string | undefined
 
       // Validate query parameters against available apps
-      const validAppIdsFromQuery = appsFromQuery
-        .filter((id) => allAppLinks.value.some((app) => app.id === id))
-        .slice(0, 2) // Limit to max 2 apps from query
-
-      const validActiveIdFromQuery = validAppIdsFromQuery.includes(
-        activeFromQuery ?? ''
+      const validAppIdsFromQuery = appsFromQuery.filter((id) =>
+        allAppLinks.value.some((app) => app.id === id)
       )
-        ? activeFromQuery
-        : null
 
       // Determine initial state: Query > Autoload > First App
       let initialDisplayedIds: string[] = []
@@ -931,8 +924,9 @@ watch(
     const activeFromQuery = newQuery.active as string | undefined
 
     // Validate query parameters against available apps
-    const validAppIdsFromQuery = appsFromQuery
-      .filter((id) => allAppLinks.value.some((app) => app.id === id))
+    const validAppIdsFromQuery = appsFromQuery.filter((id) =>
+      allAppLinks.value.some((app) => app.id === id)
+    )
 
     const validActiveIdFromQuery = validAppIdsFromQuery.includes(
       activeFromQuery ?? ''
@@ -947,8 +941,7 @@ watch(
     if (stateAppsString !== queryAppsString) {
       loadedAppIds.value = validAppIdsFromQuery
       // If displayed apps change, the active app might need recalculation
-      const newActive =
-        validActiveIdFromQuery || loadedAppIds.value[0] || null
+      const newActive = validActiveIdFromQuery || loadedAppIds.value[0] || null
       if (activeAppId.value !== newActive) {
         activateWindow(newActive) // Use activateWindow to handle previousActiveAppId correctly
       }
