@@ -59,15 +59,15 @@ jobs:
             ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        working-directory: ./app # Run pnpm install in the app directory
+        working-directory: ./web # Run pnpm install in the web directory
         run: pnpm install --frozen-lockfile
 
       - name: Run Linter (ESLint)
-        working-directory: ./app # Run lint in the app directory
+        working-directory: ./web # Run lint in the web directory
         run: pnpm lint
 
       - name: Run Formatter Check (Prettier)
-        working-directory: ./app # Run format check in the app directory
+        working-directory: ./web # Run format check in the web directory
         run: pnpm format
 
       - name: Log in to the Container registry
@@ -83,7 +83,7 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         # This action extracts useful metadata like git sha, tags, etc.
-        # It automatically generates appropriate tags based on the event (e.g., 'latest' for default branch push, git sha)
+        # It automatically generates webropriate tags based on the event (e.g., 'latest' for default branch push, git sha)
         id: meta
         uses: docker/metadata-action@v5
         with:
