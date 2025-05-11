@@ -8,6 +8,8 @@
       @mouseover="handleMouseOver"
       @mouseout="handleMouseOut"
     >
+    <q-scrollable-area  v-if="!pending && navigationItems.length > 0" class="q-p">
+
       <q-list v-if="!pending && navigationItems.length > 0" class="q-pa-0">
         <template v-for="item in navigationItems" :key="item.id">
           <!-- App Link Item -->
@@ -175,6 +177,7 @@
           </q-expansion-item>
         </template>
       </q-list>
+    </q-scrollable-area>
       <!-- Loading/Error/Empty states -->
       <q-item v-else-if="pending">
         <q-item-section class="absolute-center">
