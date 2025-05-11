@@ -80,9 +80,6 @@ jobs:
           # --- GHCR Login ---
           username: ${{ github.actor }}       # Your GitHub username or org name
           password: ${{ secrets.GITHUB_TOKEN }} # Automatically generated token
-          # --- Docker Hub Login (use these instead if using Docker Hub) ---
-          # username: ${{ secrets.DOCKERHUB_USERNAME }}
-          # password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Extract metadata (tags, labels) for Docker
         # This action extracts useful metadata like git sha, tags, etc.

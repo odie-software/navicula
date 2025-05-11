@@ -27,3 +27,7 @@ logs
 config.yml
 users.yml
 .pnpm-store
+
+venv/
+__pycache__
+*.pyc
