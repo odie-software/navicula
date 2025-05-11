@@ -103,6 +103,7 @@ const emit = defineEmits<{
 
 // --- Composables ---
 const $q = useQuasar()
+const runtimeConf = useRuntimeConfig() // Added for apiBaseUrl
 
 // --- State ---
 const apiKey = ref<string>('') // Holds the API key input
@@ -130,7 +131,8 @@ async function saveSettings() {
   error.value = undefined // Clear previous errors
 
   try {
-    await $fetch(`/api/user-settings/${props.appLink.id}`, {
+    const userSettingsApiUrl = `/api/users/settings/${props.appLink.id}/` // Added trailing slash for Django convention
+    await $fetch(userSettingsApiUrl, {
       method: 'POST',
       body: {
         // Only send relevant settings based on type

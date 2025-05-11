@@ -3,7 +3,7 @@ all: dev lint
 dev:
 	@echo "Setting up local development environment..."
 	@echo "Installing dependencies..."
-	@cd app/ && npx pnpm install
+	@cd web/ && npx pnpm install
 	@echo "Starting the dev server..."
 	@docker compose -f compose.dev.yml build --no-cache
 	@docker compose -f compose.dev.yml up -d --force-recreate
@@ -11,5 +11,5 @@ dev:
 
 lint:
 	@echo "Running linter..."
-	@cd app/ && npx pnpm lint:fix && npx pnpm format:fix
+	@cd web/ && npx pnpm lint:fix && npx pnpm format:fix
 	@echo "Linting complete."

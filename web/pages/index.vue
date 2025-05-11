@@ -49,7 +49,6 @@
                       >Configure {{ item.title }}</q-tooltip
                     >
                   </q-btn>
-                  <q-spacer />
                   <q-chip
                     v-if="Number(notificationCounts[item.id]) > 0"
                     color="red"
@@ -495,11 +494,15 @@ const configuringApp: Ref<AppLink | null> = ref(null)
  * Fetches the application configuration from the `/api/config` endpoint.
  * Provides reactive `data`, `pending`, and `error` states.
  */
+const runtimeConf = useRuntimeConfig() // Renamed to avoid conflict with 'config' from useRuntimeConfig()
+const apiBaseUrl = runtimeConf.public.apiBaseUrl
+const configApiUrl = `${apiBaseUrl}/config/configuration/`
+
 const {
   data: configData,
   pending,
   error,
-} = useFetch<ConfigResponse>('/api/config')
+} = useFetch<ConfigResponse>(configApiUrl)
 
 // --- Computed Properties ---
 
@@ -547,11 +550,13 @@ const flatAppLinks = computed((): AppLink[] => {
  */
 async function fetchNotificationCount(appId: string): Promise<void> {
   try {
+    // apiBaseUrl is already defined from the previous change
+    const notificationApiUrl = `/api/notifications/${appId}/`
     const response = await $fetch<NotificationCountResponse>(
-      `/api/notifications/${appId}`,
+      notificationApiUrl,
       {
         method: 'GET',
-        // Optional: Add headers if needed, though user context is handled server-side
+
       }
     )
     notificationCounts.value[appId] = response.count

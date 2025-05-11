@@ -21,6 +21,10 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       appVersion: pkg.version,
+      // Base URL for the Django API
+      // It's recommended to set this via an environment variable (e.g., NUXT_PUBLIC_API_BASE_URL)
+      // Defaulting to localhost:8000 for local Django development server
+      apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://api:8000/api',
     },
   },
 })
