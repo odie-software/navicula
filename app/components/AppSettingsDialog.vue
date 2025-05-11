@@ -1,5 +1,9 @@
 <template>
-  <q-dialog :model-value="modelValue" @update:model-value="emitUpdate(false)" persistent>
+  <q-dialog
+    :model-value="modelValue"
+    persistent
+    @update:model-value="emitUpdate(false)"
+  >
     <q-card style="min-width: 350px">
       <q-card-section>
         <div class="text-h6">Configure {{ appLink?.title }}</div>
@@ -35,18 +39,26 @@
           </q-input>
         </template>
         <template v-else>
-          <p>Configuration for this application type ({{ appLink?.type }}) is not yet supported.</p>
+          <p>
+            Configuration for this application type ({{ appLink?.type }}) is not
+            yet supported.
+          </p>
         </template>
       </q-card-section>
 
       <q-card-actions align="right" class="text-primary">
-        <q-btn flat label="Cancel" @click="emitUpdate(false)" :disable="saving" />
+        <q-btn
+          flat
+          label="Cancel"
+          :disable="saving"
+          @click="emitUpdate(false)"
+        />
         <q-btn
           flat
           label="Save"
-          @click="saveSettings"
           :loading="saving"
           :disable="!isSaveEnabled"
+          @click="saveSettings"
         />
       </q-card-actions>
     </q-card>
@@ -55,7 +67,16 @@
 
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import { useQuasar, QDialog, QCard, QCardSection, QCardActions, QInput, QBtn, QIcon } from 'quasar'
+import {
+  useQuasar,
+  QDialog,
+  QCard,
+  QCardSection,
+  QCardActions,
+  QInput,
+  QBtn,
+  QIcon,
+} from 'quasar'
 import { $fetch } from 'ofetch'
 
 // --- Props ---
@@ -125,9 +146,29 @@ async function saveSettings() {
     })
     emit('settings-saved', props.appLink.id) // Notify parent
     emitUpdate(false) // Close dialog
-  } catch (err: any) {
-    console.error(`Failed to save settings for ${props.appLink.id}:`, err)
-    error.value = err.data?.message || err.message || 'Failed to save settings. Please try again.'
+  } catch (e: unknown) {
+    console.error(`Failed to save settings for ${props.appLink.id}:`, e)
+    const defaultMessage = 'Failed to save settings. Please try again.'
+    let message = defaultMessage
+
+    if (typeof e === 'object' && e !== null) {
+      // Assuming e might have a 'data' object with a 'message' string, or 'e' itself has a 'message' string.
+      // This is a common pattern for API error responses.
+      const errorWithData = e as {
+        data?: { message?: string }
+        message?: string
+      }
+      message =
+        errorWithData.data?.message || errorWithData.message || defaultMessage
+    } else if (e instanceof Error) {
+      // Fallback if e is an Error instance but not fitting the object structure above
+      // (e.g., a basic Error without a 'data' property).
+      message = e.message || defaultMessage
+    }
+    // If 'e' is a string or other primitive, it won't be handled by the above,
+    // 'message' will remain 'defaultMessage'.
+
+    error.value = message
     $q.notify({
       type: 'negative',
       message: error.value,
@@ -165,28 +206,26 @@ watch(
       // } finally {
       //   loading.value = false;
       // }
-
     }
   }
 )
 
 // Watch the appLink prop itself in case it changes while dialog is open (unlikely but safe)
 watch(
-    () => props.appLink,
-    (newAppLink) => {
-        if (props.modelValue && newAppLink) {
-             // Reset state if the app context changes
-             apiKey.value = '';
-             initialApiKey.value = '';
-             showApiKey.value = false;
-             saving.value = false;
-             loading.value = false;
-             error.value = undefined;
-             // Potentially re-trigger loading existing settings here if implemented
-        }
+  () => props.appLink,
+  (newAppLink) => {
+    if (props.modelValue && newAppLink) {
+      // Reset state if the app context changes
+      apiKey.value = ''
+      initialApiKey.value = ''
+      showApiKey.value = false
+      saving.value = false
+      loading.value = false
+      error.value = undefined
+      // Potentially re-trigger loading existing settings here if implemented
     }
+  }
 )
-
 </script>
 
 <style scoped>

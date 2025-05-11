@@ -1,23 +1,24 @@
 // File: app/server/api/notifications/[appId].get.ts
 import { promises as fs } from 'fs'
-import { join } from 'path'
+// import { join } from 'path' // Unused
 import {
   defineEventHandler,
-  getQuery,
+  // getQuery, // Unused
   getHeader,
-  setResponseStatus,
+  // setResponseStatus, // Unused
   createError,
   getRouterParam,
+  type H3Event, // Added for type safety
 } from 'h3'
 import yaml from 'js-yaml'
-import { $fetch } from 'ofetch';
+import { $fetch } from 'ofetch'
 
 // --- Type Guards (defined locally) ---
 function isCategory(item: NavigationItem): item is NavCategory {
-  return Array.isArray((item as NavCategory).apps);
+  return Array.isArray((item as NavCategory).apps)
 }
 function isAppLink(item: NavigationItem): item is AppLink {
-  return typeof (item as AppLink).url === 'string';
+  return typeof (item as AppLink).url === 'string'
 }
 
 // --- Helper to find AppLink by ID ---
@@ -37,7 +38,7 @@ function findAppLinkById(
 }
 
 // --- Helper to get User Identifier ---
-function getUserIdentifier(event: any, config: Config): string | null {
+function getUserIdentifier(event: H3Event, config: Config): string | null {
   if (config.useRemoteAuth) {
     const userEmailHeader = (
       getHeader(event, 'remote-user') ||
@@ -52,30 +53,33 @@ function getUserIdentifier(event: any, config: Config): string | null {
 }
 
 // --- Helper to load User App Settings from users.yml ---
-const USER_SETTINGS_PATH = process.env.APP_USER_SETTINGS_PATH || '/app/users.yml';
+const USER_SETTINGS_PATH =
+  process.env.APP_USER_SETTINGS_PATH || '/app/users.yml'
 
 // Loads the settings for a SPECIFIC user from the main users.yml file
 async function loadUserSettingsForUser(
   userIdentifier: string
-): Promise<UserAppSettings | null> { // Return null on error, {} if not found/empty
-  if (!userIdentifier) return {}; // Should not happen if called correctly, but return empty for safety
+): Promise<UserAppSettings | null> {
+  // Return null on error, {} if not found/empty
+  if (!userIdentifier) return {} // Should not happen if called correctly, but return empty for safety
 
   try {
-    const fileContent = await fs.readFile(USER_SETTINGS_PATH, 'utf-8');
-    const allSettings = yaml.load(fileContent) as AllUserSettings | null;
-    return allSettings?.[userIdentifier] || {}; // Return specific user's settings or empty object
-  } catch (error: any) {
+    const fileContent = await fs.readFile(USER_SETTINGS_PATH, 'utf-8')
+    const allSettings = yaml.load(fileContent) as AllUserSettings | null
+    return allSettings?.[userIdentifier] || {} // Return specific user's settings or empty object
+  } catch (e: unknown) {
+    const error = e as { code?: string; message?: string } // Type assertion
     if (error.code === 'ENOENT') {
       // File not found is expected, treat as empty settings
-      return {};
+      return {}
     }
     // Log other read errors
     console.error(
       `Error reading user settings file at ${USER_SETTINGS_PATH}:`,
       error
-    );
+    )
     // Indicate an error occurred during loading
-    return null;
+    return null
   }
 }
 
@@ -110,23 +114,26 @@ export default defineEventHandler(async (event) => {
   // --- Identify User ---
   const userIdentifier = getUserIdentifier(event, config)
   if (!userIdentifier && config.useRemoteAuth) {
-      // If remote auth is enabled but no user header is found, deny access? Or treat as Guest?
-      // For now, let's prevent fetching notifications if user cannot be identified with remote auth.
-      // If !useRemoteAuth, userIdentifier should be 'default' or null (if 'default' user missing).
-      console.warn("Notifications: Could not identify user with remote auth enabled.")
-       throw createError({
-           statusCode: 401, // Unauthorized
-           statusMessage: 'Unauthorized: User identification failed',
-       })
+    // If remote auth is enabled but no user header is found, deny access? Or treat as Guest?
+    // For now, let's prevent fetching notifications if user cannot be identified with remote auth.
+    // If !useRemoteAuth, userIdentifier should be 'default' or null (if 'default' user missing).
+    console.warn(
+      'Notifications: Could not identify user with remote auth enabled.'
+    )
+    throw createError({
+      statusCode: 401, // Unauthorized
+      statusMessage: 'Unauthorized: User identification failed',
+    })
   }
-   if (!userIdentifier && !config.useRemoteAuth) {
-       console.warn("Notifications: 'default' user not found in config for non-remote auth mode.")
-       throw createError({
-           statusCode: 403, // Forbidden (config issue)
-           statusMessage: 'Forbidden: Default user configuration missing',
-       })
-   }
-
+  if (!userIdentifier && !config.useRemoteAuth) {
+    console.warn(
+      "Notifications: 'default' user not found in config for non-remote auth mode."
+    )
+    throw createError({
+      statusCode: 403, // Forbidden (config issue)
+      statusMessage: 'Forbidden: Default user configuration missing',
+    })
+  }
 
   // --- Find the AppLink ---
   const appLink = findAppLinkById(config.navigationItems || [], appId)
@@ -139,10 +146,10 @@ export default defineEventHandler(async (event) => {
   const userSettings = await loadUserSettingsForUser(userIdentifier!) // We know userIdentifier is not null here
   if (userSettings === null) {
     // Error loading settings file (logged in helper)
-     throw createError({
-         statusCode: 500,
-         statusMessage: 'Internal Server Error: Failed to load user settings',
-     })
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Internal Server Error: Failed to load user settings',
+    })
   }
 
   const appSettings = userSettings[appId]
@@ -152,10 +159,12 @@ export default defineEventHandler(async (event) => {
 
   try {
     switch (appLink.type) {
-      case 'vikunja':
+      case 'vikunja': {
         const apiKey = appSettings?.api_key
         if (!apiKey) {
-          console.warn(`Notifications: Missing api_key for Vikunja (${appId}) for user ${userIdentifier}`)
+          console.warn(
+            `Notifications: Missing api_key for Vikunja (${appId}) for user ${userIdentifier}`
+          )
           // Don't throw error, just return null count as it's not configured
           return { count: null }
         }
@@ -164,7 +173,9 @@ export default defineEventHandler(async (event) => {
         const baseUrl = appLink.url.replace(/\/$/, '')
         const apiUrl = `${baseUrl}/api/v1/notifications`
 
-        console.log(`Fetching Vikunja notifications from ${apiUrl} for user ${userIdentifier}`)
+        console.log(
+          `Fetching Vikunja notifications from ${apiUrl} for user ${userIdentifier}`
+        )
 
         const notifications: unknown[] = await $fetch(apiUrl, {
           method: 'GET',
@@ -173,28 +184,45 @@ export default defineEventHandler(async (event) => {
             Accept: 'application/json',
           },
           // Add timeout? Retry logic?
-           timeout: 5000, // 5 second timeout
+          timeout: 5000, // 5 second timeout
         })
 
         if (Array.isArray(notifications)) {
-          notificationCount = notifications.filter((x: any) => !x.read_at).length
-          console.log(`Vikunja notifications count for ${appId} / ${userIdentifier}: ${notificationCount}`)
+          // Assuming a Vikunja notification object has a 'read_at' property
+          type VikunjaNotification = {
+            read_at: string | null | undefined
+            [key: string]: unknown
+          }
+          const typedNotifications = notifications as VikunjaNotification[]
+          notificationCount = typedNotifications.filter(
+            (x) => !x.read_at
+          ).length
+          console.log(
+            `Vikunja notifications count for ${appId} / ${userIdentifier}: ${notificationCount}`
+          )
         } else {
-          console.warn(`Notifications: Unexpected response format from Vikunja (${appId}) for user ${userIdentifier}:`, notifications)
+          console.warn(
+            `Notifications: Unexpected response format from Vikunja (${appId}) for user ${userIdentifier}:`,
+            notifications
+          )
         }
         break
-
+      }
       // Add cases for other supported types here...
-      // case 'another-service':
+      // case 'another-service': {
       //   // ... implementation ...
       //   break;
-
-      default:
+      // }
+      default: {
         // Type defined but not handled here
-        console.log(`Notifications: Unsupported type "${appLink.type}" for app ${appId}`)
+        console.log(
+          `Notifications: Unsupported type "${appLink.type}" for app ${appId}`
+        )
         break
+      }
     }
-  } catch (error: any) {
+  } catch (e: unknown) {
+    const error = e as { message?: string; response?: { status?: number } } // Basic error structure
     // Log specific errors from $fetch or other issues
     console.error(
       `Notifications: Error fetching data for ${appLink.type} (${appId}) for user ${userIdentifier}:`,
@@ -202,14 +230,19 @@ export default defineEventHandler(async (event) => {
     )
     // Optionally check error status code (e.g., 401 Unauthorized from Vikunja)
     if (error.response?.status === 401) {
-        console.warn(`Notifications: Unauthorized access to ${appLink.type} API (${appId}) for user ${userIdentifier}. Check API key.`)
-        // Return null count, maybe frontend can indicate configuration error
-        return { count: null, error: 'unauthorized' }
+      console.warn(
+        `Notifications: Unauthorized access to ${appLink.type} API (${appId}) for user ${userIdentifier}. Check API key.`
+      )
+      // Return null count, maybe frontend can indicate configuration error
+      return { count: null, error: 'unauthorized' }
     }
-     if (error.message.includes('timeout')) {
-         console.warn(`Notifications: Timeout fetching data for ${appLink.type} (${appId}) for user ${userIdentifier}.`)
-         return { count: null, error: 'timeout' }
-     }
+    if (error.message && error.message.includes('timeout')) {
+      // Check if message exists
+      console.warn(
+        `Notifications: Timeout fetching data for ${appLink.type} (${appId}) for user ${userIdentifier}.`
+      )
+      return { count: null, error: 'timeout' }
+    }
     // For other errors, return null count
     return { count: null, error: 'fetch_failed' }
   }

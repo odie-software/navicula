@@ -8,30 +8,31 @@
       @mouseover="handleMouseOver"
       @mouseout="handleMouseOut"
     >
-    <div v-if="!pending && navigationItems.length > 0" class="q-pa-0">
-      <q-list>
-        <template v-for="item in navigationItems" :key="item.id">
-          <!-- App Link Item -->
-          <q-item
-            v-if="isAppLink(item)"
-            clickable
-            :active="activeAppId === item.id && loadedAppIds.length === 1"
-            active-class="active-item"
-            class="nav-item"
-            @click="selectItem(item)"
-            @mouseover="hoveredItemId = item.id"
-            @mouseleave="hoveredItemId = null"
-          >
-            <q-item-section avatar>
-              <q-icon :name="item.icon" size="sm" />
-            </q-item-section>
-            <q-item-section>
-              <q-item-label class="row items-center no-wrap">
-                <span class="ellipsis q-mini-drawer-hide">{{ item.title }}</span>
-                <!-- Notification Badge - Ensure count is number > 0 -->
+      <div v-if="!pending && navigationItems.length > 0" class="q-pa-0">
+        <q-list>
+          <template v-for="item in navigationItems" :key="item.id">
+            <!-- App Link Item -->
+            <q-item
+              v-if="isAppLink(item)"
+              clickable
+              :active="activeAppId === item.id && loadedAppIds.length === 1"
+              active-class="active-item"
+              class="nav-item"
+              @click="selectItem(item)"
+              @mouseover="hoveredItemId = item.id"
+              @mouseleave="hoveredItemId = null"
+            >
+              <q-item-section avatar>
+                <q-icon :name="item.icon" size="sm" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label class="row items-center no-wrap">
+                  <span class="ellipsis q-mini-drawer-hide">{{
+                    item.title
+                  }}</span>
+                  <!-- Notification Badge - Ensure count is number > 0 -->
 
-
-                 <q-btn
+                  <q-btn
                     v-if="item.type"
                     flat
                     dense
@@ -41,79 +42,84 @@
                     class="q-ml-xs"
                     @click.stop="openSettingsDialog(item)"
                   >
-                    <q-tooltip anchor="center right" self="center left">Configure {{ item.title }}</q-tooltip>
+                    <q-tooltip anchor="center right" self="center left"
+                      >Configure {{ item.title }}</q-tooltip
+                    >
                   </q-btn>
                   <q-spacer />
                   <q-chip
-                  v-if="Number(notificationCounts[item.id]) > 0"
-                  color="red"
-                  floating
-                  rounded
-                  class="q-ml-sm"
-                  :label="notificationCounts[item.id] as number" />
-              </q-item-label>
-            </q-item-section>
-            <!-- Add/Settings Buttons Container -->
-            <q-item-section
-              side
-              top
-              class="q-mini-drawer-hide split-button-container"
-            >
-              <q-btn
-                v-show="
-                  hoveredItemId === item.id &&
-                  !loadedAppIds.includes(item.id) &&
-                  loadedAppIds.length > 0
-                "
-                flat
-                dense
-                round
-                icon="add_box"
-                size="md"
-                @click.stop="addWindow(item)"
+                    v-if="Number(notificationCounts[item.id]) > 0"
+                    color="red"
+                    floating
+                    rounded
+                    class="q-ml-sm"
+                    :label="notificationCounts[item.id] as number"
+                  />
+                </q-item-label>
+              </q-item-section>
+              <!-- Add/Settings Buttons Container -->
+              <q-item-section
+                side
+                top
+                class="q-mini-drawer-hide split-button-container"
               >
-                <q-tooltip anchor="center right" self="center left"
-                  >Add to view</q-tooltip
+                <q-btn
+                  v-show="
+                    hoveredItemId === item.id &&
+                    !loadedAppIds.includes(item.id) &&
+                    loadedAppIds.length > 0
+                  "
+                  flat
+                  dense
+                  round
+                  icon="add_box"
+                  size="md"
+                  @click.stop="addWindow(item)"
                 >
-              </q-btn>
-            </q-item-section>
-          </q-item>
-
-          <!-- Category Item -->
-          <q-expansion-item
-            v-else-if="isCategory(item) && item.apps.length > 0"
-            expand-separator
-            default-opened
-            class="nav-item"
-          >
-            <template #header>
-              <q-item-section avatar>
-                <q-icon :name="item.icon" size="sm" />
+                  <q-tooltip anchor="center right" self="center left"
+                    >Add to view</q-tooltip
+                  >
+                </q-btn>
               </q-item-section>
-              <q-item-section class="q-mini-drawer-hide">
-                <q-item-label>{{ item.title }}</q-item-label>
-              </q-item-section>
-            </template>
+            </q-item>
 
-            <q-list dense class="q-pl-lg">
-              <q-item
-                v-for="app in item.apps"
-                :key="app.id"
-                clickable
-                :active="activeAppId === app.id && loadedAppIds.length === 1"
-                active-class="active-item"
-                dense
-                class="nav-item"
-                @click="selectItem(app)"
-                @mouseover="hoveredItemId = app.id"
-                @mouseleave="hoveredItemId = null"
-              >
+            <!-- Category Item -->
+            <q-expansion-item
+              v-else-if="isCategory(item) && item.apps.length > 0"
+              expand-separator
+              default-opened
+              class="nav-item"
+            >
+              <template #header>
                 <q-item-section avatar>
-                  <q-icon :name="app.icon" size="xs" />
+                  <q-icon :name="item.icon" size="sm" />
                 </q-item-section>
-                <q-item-section>
-                   <q-item-label class="text-body2 row items-center no-wrap">
-                      <span class="ellipsis q-mini-drawer-hide">{{ app.title }}</span>
+                <q-item-section class="q-mini-drawer-hide">
+                  <q-item-label>{{ item.title }}</q-item-label>
+                </q-item-section>
+              </template>
+
+              <q-list dense class="q-pl-lg">
+                <q-item
+                  v-for="app in item.apps"
+                  :key="app.id"
+                  clickable
+                  :active="activeAppId === app.id && loadedAppIds.length === 1"
+                  active-class="active-item"
+                  dense
+                  class="nav-item"
+                  @click="selectItem(app)"
+                  @mouseover="hoveredItemId = app.id"
+                  @mouseleave="hoveredItemId = null"
+                >
+                  <q-item-section avatar>
+                    <q-icon :name="app.icon" size="xs" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label class="text-body2 row items-center no-wrap">
+                      <span class="ellipsis q-mini-drawer-hide">{{
+                        app.title
+                      }}</span>
                       <!-- Notification Badge (Nested) - Ensure count is number > 0 -->
                       <q-badge
                         v-if="Number(notificationCounts[app.id]) > 0"
@@ -122,7 +128,7 @@
                         rounded
                         class="q-ml-sm"
                         :label="notificationCounts[app.id] as number"
-                        style="margin-bottom: 2px;"
+                        style="margin-bottom: 2px"
                       />
                       <!-- Settings Button (Nested) -->
                       <q-btn
@@ -135,40 +141,42 @@
                         class="q-ml-xs"
                         @click.stop="openSettingsDialog(app)"
                       >
-                        <q-tooltip anchor="center right" self="center left">Configure {{ app.title }}</q-tooltip>
+                        <q-tooltip anchor="center right" self="center left"
+                          >Configure {{ app.title }}</q-tooltip
+                        >
                       </q-btn>
-                   </q-item-label>
-                </q-item-section>
-                <!-- Add Button Container (Nested) -->
-                <q-item-section
-                  side
-                  top
-                  class="q-mini-drawer-hide split-button-container"
-                >
-                  <q-btn
-                    v-show="
-                      hoveredItemId === app.id &&
-                      !loadedAppIds.includes(app.id) &&
-                      loadedAppIds.length > 0
-                    "
-                    flat
-                    dense
-                    round
-                    icon="add_box"
-                    size="xs"
-                    @click.stop="addWindow(app)"
+                    </q-item-label>
+                  </q-item-section>
+                  <!-- Add Button Container (Nested) -->
+                  <q-item-section
+                    side
+                    top
+                    class="q-mini-drawer-hide split-button-container"
                   >
-                    <q-tooltip anchor="center right" self="center left"
-                      >Add to view</q-tooltip
+                    <q-btn
+                      v-show="
+                        hoveredItemId === app.id &&
+                        !loadedAppIds.includes(app.id) &&
+                        loadedAppIds.length > 0
+                      "
+                      flat
+                      dense
+                      round
+                      icon="add_box"
+                      size="xs"
+                      @click.stop="addWindow(app)"
                     >
-                  </q-btn>
-                </q-item-section>
-              </q-item>
-            </q-list>
-          </q-expansion-item>
-        </template>
-      </q-list>
-    </div>
+                      <q-tooltip anchor="center right" self="center left"
+                        >Add to view</q-tooltip
+                      >
+                    </q-btn>
+                  </q-item-section>
+                </q-item>
+              </q-list>
+            </q-expansion-item>
+          </template>
+        </q-list>
+      </div>
       <!-- Loading/Error/Empty states -->
       <q-item v-else-if="pending">
         <q-item-section class="absolute-center">
@@ -255,11 +263,14 @@
             v-for="appId in activeAppIds"
             v-show="loadedAppIds.includes(appId)"
             :ref="
-              (el: any) => {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (el: ComponentPublicInstance | Element | null) => {
                 // Ensure refs are correctly assigned/removed
-                if (el) {
+                if (el && '$props' in el && 'appLink' in el.$props) {
+                  // Check if el is a component instance with expected props
                   appWindowRefs[appId] = el as InstanceType<typeof AppWindow>
-                } else {
+                } else if (!el) {
+                  // Handle element being detached
                   // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
                   delete appWindowRefs[appId]
                 }
@@ -307,7 +318,15 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, watch, computed, onMounted, onUnmounted, type Ref } from 'vue'
+import {
+  ref,
+  watch,
+  computed,
+  onMounted,
+  onUnmounted,
+  type Ref,
+  type ComponentPublicInstance,
+} from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   useQuasar,
@@ -467,7 +486,6 @@ const showSettingsDialog: Ref<boolean> = ref(false)
 /** Holds the AppLink object for the app currently being configured. */
 const configuringApp: Ref<AppLink | null> = ref(null)
 
-
 // --- API Fetch ---
 
 /**
@@ -535,11 +553,15 @@ async function fetchNotificationCount(appId: string): Promise<void> {
     )
     notificationCounts.value[appId] = response.count
     if (response.error) {
-        console.warn(`Notification fetch for ${appId} completed with error: ${response.error}`)
-        // Optionally show a subtle indicator in UI if count is null due to error
+      console.warn(
+        `Notification fetch for ${appId} completed with error: ${response.error}`
+      )
+      // Optionally show a subtle indicator in UI if count is null due to error
     }
-  } catch (error: any) {
-    console.error(`Failed to fetch notification count for ${appId}:`, error)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (err: any) {
+    // Changed from error: any
+    console.error(`Failed to fetch notification count for ${appId}:`, err)
     notificationCounts.value[appId] = null // Set to null on error
     // Avoid noisy notifications for background fetches, log is sufficient
   }
@@ -557,7 +579,9 @@ async function fetchAllNotifications(): Promise<void> {
     if (app.type) {
       // For now, we only explicitly support 'vikunja', but fetch for any type defined
       // In the future, might check against a list of supported types.
-       console.log(`Queueing notification fetch for ${app.id} (type: ${app.type})`)
+      console.log(
+        `Queueing notification fetch for ${app.id} (type: ${app.type})`
+      )
       promises.push(fetchNotificationCount(app.id))
     }
   })
@@ -614,9 +638,10 @@ function toggleDrawerMode(): void {
   if (drawerMode.value === 'auto-hide') {
     drawerMode.value = 'always-open'
     isMini.value = false // Keep drawer open
-  } else { // 'always-open'
+  } else {
+    // 'always-open'
     drawerMode.value = 'auto-hide'
-    isMini.value = true  // Switch to mini, will expand on hover
+    isMini.value = true // Switch to mini, will expand on hover
   }
 }
 
@@ -993,8 +1018,9 @@ watch(
       // Update core state from config
       navigationItems.value = newConfig.navigationItems
       // Assign properties individually with explicit cast for userEmail
-      userInfo.value.userEmail = newConfig.userEmail as (string | null) // Explicit cast
-      userInfo.value.role = typeof newConfig.role === 'string' ? newConfig.role : 'Guest'
+      userInfo.value.userEmail = newConfig.userEmail as string | null // Explicit cast
+      userInfo.value.role =
+        typeof newConfig.role === 'string' ? newConfig.role : 'Guest'
       defaultToolbarColor.value = newConfig.defaultToolbarColor || 'primary'
       keybindingsConfig.value = newConfig.keybindings || {}
 

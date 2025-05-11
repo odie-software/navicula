@@ -1,14 +1,14 @@
-import { promises as fs } from 'fs';
-import { defineEventHandler, getHeader, setResponseStatus } from 'h3';
-import yaml from 'js-yaml'; 
+import { promises as fs } from 'fs'
+import { defineEventHandler, getHeader, setResponseStatus } from 'h3'
+import yaml from 'js-yaml'
 function isCategory(item: NavigationItem): item is NavCategory {
-  return Array.isArray((item as NavCategory).apps);
+  return Array.isArray((item as NavCategory).apps)
 }
 function isAppLink(item: NavigationItem): item is AppLink {
-  return typeof (item as AppLink).url === 'string';
+  return typeof (item as AppLink).url === 'string'
 }
 
-const DEFAULT_ROLE = 'Guest';
+const DEFAULT_ROLE = 'Guest'
 
 export default defineEventHandler(async (event) => {
   // --- Configuration Loading ---
