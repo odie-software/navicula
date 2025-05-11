@@ -1,12 +1,12 @@
-import { createProxyEventHandler } from "h3-proxy"
+import { createProxyEventHandler } from 'h3-proxy'
 
 export default defineEventHandler(
   createProxyEventHandler({
     target: useRuntimeConfig().public.apiBaseUrl,
     changeOrigin: true,
     pathRewrite: {
-      "^/api": "",
+      '^/api': '',
     },
-    pathFilter: ["/api"],
-  }),
+    pathFilter: ['/api'],
+  })
 )

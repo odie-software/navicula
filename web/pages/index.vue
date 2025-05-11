@@ -556,7 +556,6 @@ async function fetchNotificationCount(appId: string): Promise<void> {
       notificationApiUrl,
       {
         method: 'GET',
-
       }
     )
     notificationCounts.value[appId] = response.count
