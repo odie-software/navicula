@@ -8,175 +8,173 @@
       @mouseover="handleMouseOver"
       @mouseout="handleMouseOut"
     >
-      <div v-if="!pending && navigationItems.length > 0" class="q-pa-0">
-        <q-list>
-          <template v-for="item in navigationItems" :key="item.id">
-            <!-- App Link Item -->
-            <q-item
-              v-if="isAppLink(item)"
-              clickable
-              :active="activeAppId === item.id && loadedAppIds.length === 1"
-              active-class="active-item"
-              class="nav-item"
-              @click="selectItem(item)"
-              @mouseover="hoveredItemId = item.id"
-              @mouseleave="hoveredItemId = null"
-            >
-              <q-item-section avatar>
-                <q-icon :name="item.icon" size="sm" />
-              </q-item-section>
-              <q-item-section>
-                <q-item-label class="row items-center no-wrap">
-                  <span class="ellipsis q-mini-drawer-hide">{{
-                    item.title
-                  }}</span>
-                  <!-- Notification Badge - Ensure count is number > 0 -->
+      <q-list v-if="!pending && navigationItems.length > 0" class="q-pa-0">
+        <template v-for="item in navigationItems" :key="item.id">
+          <!-- App Link Item -->
+          <q-item
+            v-if="isAppLink(item)"
+            clickable
+            :active="activeAppId === item.id && loadedAppIds.length === 1"
+            active-class="active-item"
+            class="nav-item"
+            @click="selectItem(item)"
+            @mouseover="hoveredItemId = item.id"
+            @mouseleave="hoveredItemId = null"
+          >
+            <q-item-section avatar>
+              <q-icon :name="item.icon" size="sm" />
+            </q-item-section>
+            <q-item-section>
+              <q-item-label class="row items-center no-wrap">
+                <span class="ellipsis q-mini-drawer-hide">{{
+                  item.title
+                }}</span>
+                <!-- Notification Badge - Ensure count is number > 0 -->
 
-                  <q-btn
-                    v-if="item.type"
-                    flat
-                    dense
-                    round
-                    icon="settings"
-                    size="xs"
-                    class="q-ml-xs"
-                    @click.stop="openSettingsDialog(item)"
-                  >
-                    <q-tooltip anchor="center right" self="center left"
-                      >Configure {{ item.title }}</q-tooltip
-                    >
-                  </q-btn>
-                  <q-spacer />
-                  <q-chip
-                    v-if="Number(notificationCounts[item.id]) > 0"
-                    color="red"
-                    floating
-                    rounded
-                    class="q-ml-sm"
-                    :label="notificationCounts[item.id] as number"
-                  />
-                </q-item-label>
-              </q-item-section>
-              <!-- Add/Settings Buttons Container -->
-              <q-item-section
-                side
-                top
-                class="q-mini-drawer-hide split-button-container"
-              >
                 <q-btn
-                  v-show="
-                    hoveredItemId === item.id &&
-                    !loadedAppIds.includes(item.id) &&
-                    loadedAppIds.length > 0
-                  "
+                  v-if="item.type"
                   flat
                   dense
                   round
-                  icon="add_box"
-                  size="md"
-                  @click.stop="addWindow(item)"
+                  icon="settings"
+                  size="xs"
+                  class="q-ml-xs"
+                  @click.stop="openSettingsDialog(item)"
                 >
                   <q-tooltip anchor="center right" self="center left"
-                    >Add to view</q-tooltip
+                    >Configure {{ item.title }}</q-tooltip
                   >
                 </q-btn>
-              </q-item-section>
-            </q-item>
-
-            <!-- Category Item -->
-            <q-expansion-item
-              v-else-if="isCategory(item) && item.apps.length > 0"
-              expand-separator
-              default-opened
-              class="nav-item"
+                <q-spacer />
+                <q-chip
+                  v-if="Number(notificationCounts[item.id]) > 0"
+                  color="red"
+                  floating
+                  rounded
+                  class="q-ml-sm"
+                  :label="notificationCounts[item.id] as number"
+                />
+              </q-item-label>
+            </q-item-section>
+            <!-- Add/Settings Buttons Container -->
+            <q-item-section
+              side
+              top
+              class="q-mini-drawer-hide split-button-container"
             >
-              <template #header>
-                <q-item-section avatar>
-                  <q-icon :name="item.icon" size="sm" />
-                </q-item-section>
-                <q-item-section class="q-mini-drawer-hide">
-                  <q-item-label>{{ item.title }}</q-item-label>
-                </q-item-section>
-              </template>
-
-              <q-list dense class="q-pl-lg">
-                <q-item
-                  v-for="app in item.apps"
-                  :key="app.id"
-                  clickable
-                  :active="activeAppId === app.id && loadedAppIds.length === 1"
-                  active-class="active-item"
-                  dense
-                  class="nav-item"
-                  @click="selectItem(app)"
-                  @mouseover="hoveredItemId = app.id"
-                  @mouseleave="hoveredItemId = null"
+              <q-btn
+                v-show="
+                  hoveredItemId === item.id &&
+                  !loadedAppIds.includes(item.id) &&
+                  loadedAppIds.length > 0
+                "
+                flat
+                dense
+                round
+                icon="add_box"
+                size="md"
+                @click.stop="addWindow(item)"
+              >
+                <q-tooltip anchor="center right" self="center left"
+                  >Add to view</q-tooltip
                 >
-                  <q-item-section avatar>
-                    <q-icon :name="app.icon" size="xs" />
-                  </q-item-section>
-                  <q-item-section>
-                    <q-item-label class="text-body2 row items-center no-wrap">
-                      <span class="ellipsis q-mini-drawer-hide">{{
-                        app.title
-                      }}</span>
-                      <!-- Notification Badge (Nested) - Ensure count is number > 0 -->
-                      <q-badge
-                        v-if="Number(notificationCounts[app.id]) > 0"
-                        color="red"
-                        floating
-                        rounded
-                        class="q-ml-sm"
-                        :label="notificationCounts[app.id] as number"
-                        style="margin-bottom: 2px"
-                      />
-                      <!-- Settings Button (Nested) -->
-                      <q-btn
-                        v-if="app.type"
-                        flat
-                        dense
-                        round
-                        icon="settings"
-                        size="xs"
-                        class="q-ml-xs"
-                        @click.stop="openSettingsDialog(app)"
-                      >
-                        <q-tooltip anchor="center right" self="center left"
-                          >Configure {{ app.title }}</q-tooltip
-                        >
-                      </q-btn>
-                    </q-item-label>
-                  </q-item-section>
-                  <!-- Add Button Container (Nested) -->
-                  <q-item-section
-                    side
-                    top
-                    class="q-mini-drawer-hide split-button-container"
-                  >
+              </q-btn>
+            </q-item-section>
+          </q-item>
+
+          <!-- Category Item -->
+          <q-expansion-item
+            v-else-if="isCategory(item) && item.apps.length > 0"
+            expand-separator
+            default-opened
+            class="nav-item"
+          >
+            <template #header>
+              <q-item-section avatar>
+                <q-icon :name="item.icon" size="sm" />
+              </q-item-section>
+              <q-item-section class="q-mini-drawer-hide">
+                <q-item-label>{{ item.title }}</q-item-label>
+              </q-item-section>
+            </template>
+
+            <q-list dense class="q-pl-lg">
+              <q-item
+                v-for="app in item.apps"
+                :key="app.id"
+                clickable
+                :active="activeAppId === app.id && loadedAppIds.length === 1"
+                active-class="active-item"
+                dense
+                class="nav-item"
+                @click="selectItem(app)"
+                @mouseover="hoveredItemId = app.id"
+                @mouseleave="hoveredItemId = null"
+              >
+                <q-item-section avatar>
+                  <q-icon :name="app.icon" size="xs" />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label class="text-body2 row items-center no-wrap">
+                    <span class="ellipsis q-mini-drawer-hide">{{
+                      app.title
+                    }}</span>
+                    <!-- Notification Badge (Nested) - Ensure count is number > 0 -->
+                    <q-badge
+                      v-if="Number(notificationCounts[app.id]) > 0"
+                      color="red"
+                      floating
+                      rounded
+                      class="q-ml-sm"
+                      :label="notificationCounts[app.id] as number"
+                      style="margin-bottom: 2px"
+                    />
+                    <!-- Settings Button (Nested) -->
                     <q-btn
-                      v-show="
-                        hoveredItemId === app.id &&
-                        !loadedAppIds.includes(app.id) &&
-                        loadedAppIds.length > 0
-                      "
+                      v-if="app.type"
                       flat
                       dense
                       round
-                      icon="add_box"
+                      icon="settings"
                       size="xs"
-                      @click.stop="addWindow(app)"
+                      class="q-ml-xs"
+                      @click.stop="openSettingsDialog(app)"
                     >
                       <q-tooltip anchor="center right" self="center left"
-                        >Add to view</q-tooltip
+                        >Configure {{ app.title }}</q-tooltip
                       >
                     </q-btn>
-                  </q-item-section>
-                </q-item>
-              </q-list>
-            </q-expansion-item>
-          </template>
-        </q-list>
-      </div>
+                  </q-item-label>
+                </q-item-section>
+                <!-- Add Button Container (Nested) -->
+                <q-item-section
+                  side
+                  top
+                  class="q-mini-drawer-hide split-button-container"
+                >
+                  <q-btn
+                    v-show="
+                      hoveredItemId === app.id &&
+                      !loadedAppIds.includes(app.id) &&
+                      loadedAppIds.length > 0
+                    "
+                    flat
+                    dense
+                    round
+                    icon="add_box"
+                    size="xs"
+                    @click.stop="addWindow(app)"
+                  >
+                    <q-tooltip anchor="center right" self="center left"
+                      >Add to view</q-tooltip
+                    >
+                  </q-btn>
+                </q-item-section>
+              </q-item>
+            </q-list>
+          </q-expansion-item>
+        </template>
+      </q-list>
       <!-- Loading/Error/Empty states -->
       <q-item v-else-if="pending">
         <q-item-section class="absolute-center">
