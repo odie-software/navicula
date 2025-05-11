@@ -3,6 +3,8 @@ from .models import UserApplicationSetting
 from config.services import ConfigService as AppConfigService # For validating app_id
 
 class UserApplicationSettingSerializer(serializers.ModelSerializer):
+    settings = serializers.JSONField() # Explicitly define as JSONField
+
     class Meta:
         model = UserApplicationSetting
         fields = [
@@ -35,6 +37,8 @@ class UserApplicationSettingUpdateSerializer(serializers.ModelSerializer):
     A specific serializer for updating just the 'settings' field.
     The user_identifier and application will be determined from the URL.
     """
+    settings = serializers.JSONField() # Explicitly define as JSONField
+
     class Meta:
         model = UserApplicationSetting
         fields = ['settings']

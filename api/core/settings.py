@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os # For reading environment variables
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -39,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders', # Added for CORS
+    # 'django_cryptography', # Removed, manual encryption will be used
     'config.apps.ConfigConfig',
     'users.apps.UsersConfig',
     'notifications.apps.NotificationsConfig',
@@ -135,3 +137,5 @@ CORS_ALLOW_ALL_ORIGINS = True
 #    "http://127.0.0.1:3000",
 # ]
 # CORS_ALLOW_CREDENTIALS = True # If you need to send cookies or auth headers
+
+# Manual encryption for UserApplicationSetting.settings will use settings.SECRET_KEY.

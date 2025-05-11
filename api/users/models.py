@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from .fields import EncryptedJSONField # Import our custom field
 
 class UserApplicationSetting(models.Model):
     """
@@ -22,10 +23,10 @@ class UserApplicationSetting(models.Model):
         db_index=True,
         help_text="Identifier for the application (e.g., 'app-vikunja'). Must match an app_id in the main config."
     )
-    settings = models.JSONField(
-        default=dict,
-        blank=True,
-        help_text="Application-specific settings for the user (e.g., {'api_key': '...'})."
+    settings = EncryptedJSONField(
+        default=dict, # Ensures it defaults to an empty dictionary
+        blank=True,   # Allows the field to be blank in forms/admin
+        help_text="Application-specific settings for the user (e.g., {'api_key': '...'}), stored encrypted."
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
