@@ -2,14 +2,14 @@
   <q-layout view="lHh Lpr lFf">
     <q-drawer
       v-model="leftDrawerOpen"
-      :mini="drawerMode === 'auto-hide' && miniState"
+      :mini="isMini"
       bordered
-      class="drawer-column"
+      behavior="desktop"
       @mouseover="handleMouseOver"
       @mouseout="handleMouseOut"
-      @update:mini="(val: boolean) => (miniState = val)"
     >
-      <q-list v-if="!pending && navigationItems.length > 0" padding>
+    <div v-if="!pending && navigationItems.length > 0" class="q-pa-0">
+      <q-list>
         <template v-for="item in navigationItems" :key="item.id">
           <!-- App Link Item -->
           <q-item
@@ -25,9 +25,9 @@
             <q-item-section avatar>
               <q-icon :name="item.icon" size="sm" />
             </q-item-section>
-            <q-item-section class="q-mini-drawer-hide">
+            <q-item-section>
               <q-item-label class="row items-center no-wrap">
-                <span class="ellipsis">{{ item.title }}</span>
+                <span class="ellipsis q-mini-drawer-hide">{{ item.title }}</span>
                 <!-- Notification Badge - Ensure count is number > 0 -->
 
 
@@ -45,12 +45,12 @@
                   </q-btn>
                   <q-spacer />
                   <q-chip
-                  v-if="typeof notificationCounts[item.id] === 'number' && notificationCounts[item.id]! > 0"
+                  v-if="Number(notificationCounts[item.id]) > 0"
                   color="red"
                   floating
                   rounded
                   class="q-ml-sm"
-                  :label="notificationCounts[item.id]" />
+                  :label="notificationCounts[item.id] as number" />
               </q-item-label>
             </q-item-section>
             <!-- Add/Settings Buttons Container -->
@@ -95,7 +95,7 @@
               </q-item-section>
             </template>
 
-            <q-list dense padding class="q-pl-lg">
+            <q-list dense class="q-pl-lg">
               <q-item
                 v-for="app in item.apps"
                 :key="app.id"
@@ -111,12 +111,12 @@
                 <q-item-section avatar>
                   <q-icon :name="app.icon" size="xs" />
                 </q-item-section>
-                <q-item-section class="q-mini-drawer-hide">
+                <q-item-section>
                    <q-item-label class="text-body2 row items-center no-wrap">
-                      <span class="ellipsis">{{ app.title }}</span>
+                      <span class="ellipsis q-mini-drawer-hide">{{ app.title }}</span>
                       <!-- Notification Badge (Nested) - Ensure count is number > 0 -->
                       <q-badge
-                        v-if="typeof notificationCounts[app.id] === 'number' && notificationCounts[app.id]! > 0"
+                        v-if="Number(notificationCounts[app.id]) > 0"
                         color="red"
                         floating
                         rounded
@@ -168,6 +168,7 @@
           </q-expansion-item>
         </template>
       </q-list>
+    </div>
       <!-- Loading/Error/Empty states -->
       <q-item v-else-if="pending">
         <q-item-section class="absolute-center">
@@ -431,10 +432,10 @@ const config = useRuntimeConfig()
 
 /** Controls the visibility (open/closed) of the left navigation drawer. */
 const leftDrawerOpen: Ref<boolean> = ref(true)
-/** Controls the mini-mode state of the drawer (true = minimized). */
-const miniState: Ref<boolean> = ref(true)
 /** Current behavior mode of the drawer ('auto-hide' or 'always-open'). */
 const drawerMode: Ref<DrawerMode> = ref('auto-hide')
+/** Controls the mini-mode state of the drawer (true = minimized). This is the direct source for the :mini prop. */
+const isMini: Ref<boolean> = ref(true)
 /** ID of the currently active AppWindow, or null if none is active. */
 const activeAppId: Ref<string | null> = ref(null)
 /** Array of AppLink IDs currently active in AppWindows. */
@@ -610,12 +611,12 @@ function handleSettingsSaved(appId: string): void {
  * Adjusts the miniState accordingly.
  */
 function toggleDrawerMode(): void {
-  drawerMode.value =
-    drawerMode.value === 'auto-hide' ? 'always-open' : 'auto-hide'
-  if (drawerMode.value === 'always-open') {
-    miniState.value = false
-  } else {
-    miniState.value = true
+  if (drawerMode.value === 'auto-hide') {
+    drawerMode.value = 'always-open'
+    isMini.value = false // Keep drawer open
+  } else { // 'always-open'
+    drawerMode.value = 'auto-hide'
+    isMini.value = true  // Switch to mini, will expand on hover
   }
 }
 
@@ -625,7 +626,7 @@ function toggleDrawerMode(): void {
  */
 function handleMouseOver(): void {
   if (drawerMode.value === 'auto-hide') {
-    miniState.value = false
+    isMini.value = false
   }
 }
 
@@ -635,7 +636,7 @@ function handleMouseOver(): void {
  */
 function handleMouseOut(): void {
   if (drawerMode.value === 'auto-hide') {
-    miniState.value = true
+    isMini.value = true
   }
 }
 
@@ -731,7 +732,7 @@ function closeWindow(appIdToClose: string): void {
  * @param {string | null} appId - The ID of the AppLink to activate, or null to deactivate.
  */
 function activateWindow(appId: string | null): void {
-  activeAppIds.value = [appId]
+  activeAppIds.value = appId ? [appId] : []
 
   // Update URL regardless of activation/deactivation
   updateQueryParam()
@@ -1130,7 +1131,7 @@ definePageMeta({
 })
 </script>
 
-<style scoped>
+<style>
 /* Style for the active navigation item */
 .active-item {
   background-color: rgba(0, 0, 0, 0.1); /* Subtle background highlight */
@@ -1207,9 +1208,5 @@ body,
 }
 .nav-item:hover .split-button-container {
   opacity: 1; /* Show button on hover */
-}
-/* Hide the add button when the drawer is minimized */
-.q-drawer--mini .split-button-container {
-  display: none;
 }
 </style>

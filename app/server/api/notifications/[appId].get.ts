@@ -177,7 +177,7 @@ export default defineEventHandler(async (event) => {
         })
 
         if (Array.isArray(notifications)) {
-          notificationCount = notifications.length
+          notificationCount = notifications.filter((x: any) => !x.read_at).length
           console.log(`Vikunja notifications count for ${appId} / ${userIdentifier}: ${notificationCount}`)
         } else {
           console.warn(`Notifications: Unexpected response format from Vikunja (${appId}) for user ${userIdentifier}:`, notifications)
