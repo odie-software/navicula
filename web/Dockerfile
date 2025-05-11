@@ -5,8 +5,8 @@ FROM node:20 AS builder
 WORKDIR /app
 
 # Copy package manager files from the 'app' subdirectory in the build context
-COPY app/package.json ./
-COPY app/pnpm-lock.yaml ./
+COPY ./package.json ./
+COPY ./pnpm-lock.yaml ./
 
 # Install pnpm
 RUN npm install -g pnpm
