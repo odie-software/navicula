@@ -15,7 +15,7 @@ RUN npm install -g pnpm
 RUN pnpm install
 
 # Copy the rest of the application code from the 'app' subdirectory
-COPY app/ .
+COPY . .
 
 # Build the Nuxt application
 # Nuxt build command usually runs from the directory with package.json
@@ -47,6 +47,6 @@ COPY --from=builder /app/package.json ./package.json
 
 # Expose the port the app runs on
 EXPOSE 3000
-RUN ls -la /app/
+
 # Command to run the application
 CMD ["node", ".output/server/index.mjs"]
