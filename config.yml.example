@@ -1,73 +1,102 @@
+# Defines user roles and their associated permissions.
 roles:
   Admin:
     description: Full access to all applications
     permissions:
-      - "*"
+      - "*" # Wildcard grants access to all items
   Power User:
     description: Access to monitoring and specific infra tools
     permissions:
-      - cat-monitoring
-      - app-portainer
+      - cat-monitoring # Access to the whole category
+      - app-portainer # Specific app access
   User:
     description: Access to basic monitoring
     permissions:
-      - app-uptime
+      - app-uptime # Specific app access
   Guest:
-    description: Default role with no access
+    description: Default role with no access (used if user not found or auth disabled without 'default' user)
     permissions: []
+
+# Set to true if using a reverse proxy (like Traefik, Nginx) for authentication.
+# The proxy should pass the authenticated user's email in the 'Remote-User' or 'X-Forwarded-User' header.
+# If false, Navicula uses a single 'default' user configuration from the 'users' section below.
 useRemoteAuth: false
-acl:
-  admin@example.com: Admin
-  power@example.com: Power User
-  test@example.com: Power User
-  user@example.com: User
+
+# Defines users, their roles, and potentially application-specific settings overrides.
+# If useRemoteAuth is true, keys should be user emails (lowercase).
+# If useRemoteAuth is false, define a 'default' user.
+users:
+  # Example when useRemoteAuth: true
+  admin@example.com:
+    role: Admin
+    # app_settings: # Optional: User-specific settings for apps
+    #   app-vikunja:
+    #     api_key: "user_specific_vikunja_key_for_admin" # Example structure
+  power@example.com:
+    role: Power User
+  test@example.com:
+    role: Power User
+  user@example.com:
+    role: User
+  # Example for useRemoteAuth: false
+  default:
+    role: Admin # Assign a role to the default local user
+    # app_settings:
+    #   app-vikunja:
+    #     api_key: "user_specific_vikunja_key_for_default_user"
+
+# Default toolbar color if not specified per application. Use CSS color names or hex codes.
 defaultToolbarColor: primary
+
+# Defines the structure of the navigation sidebar.
+# Items can be direct application links (AppLink) or categories (NavCategory) containing apps.
 navigationItems:
-  - id: app-dashboard
+  - id: app-dashboard # Unique ID for permission checks and keybindings
     title: Dashboard
-    icon: dashboard
-    url: /dashboard-overview
-    toolbarColor: secondary
-    autoload: true
+    icon: dashboard # Material Icon name
+    url: /dashboard-overview # Internal path or external URL
+    toolbarColor: secondary # Optional: Overrides defaultToolbarColor
+    autoload: true # Optional: Load this app automatically on first visit if no other app is specified in URL
   - id: app-vikunja
     title: Vikunja
     icon: check
-    url: https://vikunja.homelab
+    url: https://vikunja.example.com # Base URL for the Vikunja instance
+    type: vikunja # NEW: Indicates the type of service for potential integrations
     toolbarColor: secondary
     autoload: true
-  - id: cat-media
+  - id: cat-media # Category ID
     title: Media
     icon: movie
-    apps:
+    apps: # Contains AppLink items
       - id: app-sonarr
         title: Sonarr
         icon: tv
-        url: https://sonarr.homelab/
+        url: https://sonarr.example.com/
       - id: app-radarr
         title: Radarr
         icon: movie
-        url: https://radarr.homelab
+        url: https://radarr.example.com
       - id: app-lidarr
         title: Lidarr
         icon: mdi-music
-        url: https://lidarr.homelab
+        url: https://lidarr.example.com
       - id: app-torrent
         title: Qbittorrent
         icon: download
-        url: https://qbittorrent.homelab
+        url: https://qbittorrent.example.com
       - id: app-nzb
         title: Nzbget
         icon: download
-        url: https://nzbget.homelab
+        url: https://nzbget.example.com
       - id: app-ytdlp
         title: Yt-dlp
         icon: mdi-youtube
-        url: https://ytdlp.homelab
+        url: https://ytdlp.example.com
         toolbarColor: "#272727"
       - id: app-invidious
         title: Invidious
         icon: mdi-youtube
-        url: https://invidious.homelab
+        url: https://invidious.example.com
         toolbarColor: "#CFBCFF"
   - id: cat-monitoring
     title: Monitoring
@@ -81,8 +110,10 @@ navigationItems:
       - id: app-prometheus
         title: Prometheus
         icon: timeline
-        url: http://prometh
+        url: http://prometheus.example.com # Corrected URL example
 
+# Optional: Define keyboard shortcuts (uses standard KeyboardEvent key strings)
+# Format: "Modifier+Key": "app-id" (e.g., "Alt+1", "Ctrl+Shift+P")
 keybindings:
   Alt+1: app-dashboard
   Alt+2: app-vikunja

@@ -5,3 +5,4 @@ services:
     container_name: navicula
     volumes:
       - ./config.yml:/app/config.yml # Mount config.yml
+      - ./users.yml:/app/users.yml   # Mount user settings

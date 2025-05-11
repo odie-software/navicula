@@ -25,4 +25,5 @@ logs
 .env.*
 !.env.example=
 config.yml
+users.yml
 .pnpm-store

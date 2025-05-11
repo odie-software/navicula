@@ -1,50 +1,14 @@
-import { promises as fs } from 'fs'
-import { defineEventHandler, getHeader, setResponseStatus } from 'h3'
-import yaml from 'js-yaml' // Import js-yaml
-
-// --- Interfaces matching the new config structure ---
-interface AppLink {
-  id: string
-  title: string
-  icon: string
-  url: string
-  toolbarColor?: string
-  autoload?: boolean
-}
-
-interface NavCategory {
-  id: string
-  title: string
-  icon: string
-  apps: AppLink[]
-  toolbarColor?: string
-}
-
-type NavigationItem = AppLink | NavCategory
-
-interface Role {
-  description: string
-  permissions: string[]
-}
-
-interface Config {
-  roles: Record<string, Role>
-  acl: Record<string, string>
-  navigationItems: NavigationItem[]
-  defaultToolbarColor: string
-  keybindings?: Record<string, string>
-  useRemoteAuth?: boolean
-}
-
-// --- Type Guards ---
+import { promises as fs } from 'fs';
+import { defineEventHandler, getHeader, setResponseStatus } from 'h3';
+import yaml from 'js-yaml'; 
 function isCategory(item: NavigationItem): item is NavCategory {
-  return Array.isArray((item as NavCategory).apps)
+  return Array.isArray((item as NavCategory).apps);
 }
 function isAppLink(item: NavigationItem): item is AppLink {
-  return typeof (item as AppLink).url === 'string'
+  return typeof (item as AppLink).url === 'string';
 }
 
-const DEFAULT_ROLE = 'Guest'
+const DEFAULT_ROLE = 'Guest';
 
 export default defineEventHandler(async (event) => {
   // --- Configuration Loading ---
@@ -66,9 +30,10 @@ export default defineEventHandler(async (event) => {
         "Invalid config format: 'navigationItems' array is missing or invalid."
       )
     }
-    if (!config.roles || !config.acl || !config.defaultToolbarColor) {
+    // Updated validation check for 'users' instead of 'acl'
+    if (!config.roles || !config.users || !config.defaultToolbarColor) {
       console.warn(
-        "Config warning: 'roles', 'acl', or 'defaultToolbarColor' might be missing."
+        "Config warning: 'roles', 'users', or 'defaultToolbarColor' might be missing."
       )
     }
   } catch (error) {
@@ -89,8 +54,9 @@ export default defineEventHandler(async (event) => {
 
   // --- User Identification & Role Calculation ---
   let userEmail: string | null = null
+  let userIdentifier: string | null = null
+  let userConfig: UserConfig | undefined
   let userRoleName: string
-  let userRole: Role | undefined
 
   if (config.useRemoteAuth) {
     const userEmailHeader = (
@@ -99,17 +65,26 @@ export default defineEventHandler(async (event) => {
       ''
     ).toLowerCase()
     userEmail = userEmailHeader || null
-    userRoleName = userEmail
-      ? config.acl[userEmail] || DEFAULT_ROLE
-      : DEFAULT_ROLE
-    userRole = config.roles[userRoleName]
+    userIdentifier = userEmail // Use email as the identifier
+    userConfig = userIdentifier ? config.users[userIdentifier] : undefined
+    userRoleName = userConfig ? userConfig.role : DEFAULT_ROLE
   } else {
-    userRoleName = config.roles['Admin'] ? 'Admin' : DEFAULT_ROLE
-    userRole = config.roles[userRoleName]
-    userEmail = 'localuser@navicula.local'
+    // When not using remote auth, look for the 'default' user
+    userIdentifier = 'default'
+    userConfig = config.users[userIdentifier]
+    userRoleName = userConfig ? userConfig.role : DEFAULT_ROLE
+    // Set a placeholder email for local mode if needed, or keep null
+    userEmail = userConfig ? `${userIdentifier}@navicula.local` : null
   }
 
+  // Find the Role object based on the determined role name
+  let userRole: Role | undefined = config.roles[userRoleName]
+
+  // Fallback to DEFAULT_ROLE if the assigned role doesn't exist in 'roles'
   if (!userRole) {
+    console.warn(
+      `Assigned role "${userRoleName}" for user "${userIdentifier}" not found in roles definition. Falling back to "${DEFAULT_ROLE}".`
+    )
     userRoleName = DEFAULT_ROLE
     userRole = config.roles[DEFAULT_ROLE]
   }

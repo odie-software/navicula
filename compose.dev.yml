@@ -12,6 +12,7 @@ services:
       - dev_node_modules:/app/node_modules
       - ./app:/app
       - ./config.yml:/app/config.yml # Mount config.yml
+      - ./users.yml:/app/users.yml   # Mount user settings
     ports:
       - "3000:3000"
 

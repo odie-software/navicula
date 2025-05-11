@@ -26,9 +26,34 @@
               <q-icon :name="item.icon" size="sm" />
             </q-item-section>
             <q-item-section class="q-mini-drawer-hide">
-              <q-item-label>{{ item.title }}</q-item-label>
+              <q-item-label class="row items-center no-wrap">
+                <span class="ellipsis">{{ item.title }}</span>
+                <!-- Notification Badge - Ensure count is number > 0 -->
+
+
+                 <q-btn
+                    v-if="item.type"
+                    flat
+                    dense
+                    round
+                    icon="settings"
+                    size="xs"
+                    class="q-ml-xs"
+                    @click.stop="openSettingsDialog(item)"
+                  >
+                    <q-tooltip anchor="center right" self="center left">Configure {{ item.title }}</q-tooltip>
+                  </q-btn>
+                  <q-spacer />
+                  <q-chip
+                  v-if="typeof notificationCounts[item.id] === 'number' && notificationCounts[item.id]! > 0"
+                  color="red"
+                  floating
+                  rounded
+                  class="q-ml-sm"
+                  :label="notificationCounts[item.id]" />
+              </q-item-label>
             </q-item-section>
-            <!-- Add Button: Show if item not displayed -->
+            <!-- Add/Settings Buttons Container -->
             <q-item-section
               side
               top
@@ -87,11 +112,34 @@
                   <q-icon :name="app.icon" size="xs" />
                 </q-item-section>
                 <q-item-section class="q-mini-drawer-hide">
-                  <q-item-label class="text-body2">{{
-                    app.title
-                  }}</q-item-label>
+                   <q-item-label class="text-body2 row items-center no-wrap">
+                      <span class="ellipsis">{{ app.title }}</span>
+                      <!-- Notification Badge (Nested) - Ensure count is number > 0 -->
+                      <q-badge
+                        v-if="typeof notificationCounts[app.id] === 'number' && notificationCounts[app.id]! > 0"
+                        color="red"
+                        floating
+                        rounded
+                        class="q-ml-sm"
+                        :label="notificationCounts[app.id] as number"
+                        style="margin-bottom: 2px;"
+                      />
+                      <!-- Settings Button (Nested) -->
+                      <q-btn
+                        v-if="app.type"
+                        flat
+                        dense
+                        round
+                        icon="settings"
+                        size="xs"
+                        class="q-ml-xs"
+                        @click.stop="openSettingsDialog(app)"
+                      >
+                        <q-tooltip anchor="center right" self="center left">Configure {{ app.title }}</q-tooltip>
+                      </q-btn>
+                   </q-item-label>
                 </q-item-section>
-                <!-- Add Button (Nested) -->
+                <!-- Add Button Container (Nested) -->
                 <q-item-section
                   side
                   top
@@ -247,6 +295,13 @@
         </div>
       </q-page>
     </q-page-container>
+
+    <!-- App Settings Dialog -->
+    <app-settings-dialog
+      v-model="showSettingsDialog"
+      :app-link="configuringApp"
+      @settings-saved="handleSettingsSaved"
+    />
   </q-layout>
 </template>
 
@@ -268,9 +323,11 @@ import {
   QExpansionItem,
   QPageContainer,
   QPage,
+  QBadge, // Added QBadge import
 } from 'quasar'
-import AppWindow from '../components/AppWindow.vue' // Use relative path
-import ViewSplitter from '../components/ViewSplitter.vue' // Import the new component
+import AppWindow from '../components/AppWindow.vue'
+import ViewSplitter from '../components/ViewSplitter.vue'
+import AppSettingsDialog from '../components/AppSettingsDialog.vue' // Import the dialog
 
 /**
  * Represents a direct link to an application within the navigation.
@@ -289,6 +346,8 @@ interface AppLink {
   toolbarColor?: string
   /** If true, this app should be loaded automatically on startup if no other apps are specified in the URL. */
   autoload?: boolean
+  /** Optional type identifier for service integrations (e.g., 'vikunja'). */
+  type?: string // NEW: Add type field
   /** Ensures AppLink doesn't have an 'apps' property. */
   apps?: never
 }
@@ -356,6 +415,12 @@ interface ConfigResponse {
   error?: string
 }
 
+// Structure for the notification count response
+interface NotificationCountResponse {
+  count: number | null
+  error?: string // Optional error indicator (e.g., 'unauthorized', 'timeout', 'fetch_failed')
+}
+
 // --- Composables ---
 const $q = useQuasar()
 const route = useRoute()
@@ -394,6 +459,13 @@ const keybindingsConfig: Ref<Record<string, string>> = ref({})
 const hoveredItemId: Ref<string | null> = ref(null)
 /** Application version from runtime config. */
 const appVersion: string = config.public.appVersion
+/** Stores notification counts keyed by AppLink ID. */
+const notificationCounts: Ref<Record<string, number | null>> = ref({})
+/** Controls the visibility of the App Settings Dialog. */
+const showSettingsDialog: Ref<boolean> = ref(false)
+/** Holds the AppLink object for the app currently being configured. */
+const configuringApp: Ref<AppLink | null> = ref(null)
+
 
 // --- API Fetch ---
 
@@ -444,6 +516,54 @@ const flatAppLinks = computed((): AppLink[] => {
   return flatList
 })
 
+// --- API Call Functions ---
+
+/**
+ * Fetches the notification count for a specific app ID.
+ * Updates the `notificationCounts` ref.
+ * @param {string} appId - The ID of the AppLink to fetch notifications for.
+ */
+async function fetchNotificationCount(appId: string): Promise<void> {
+  try {
+    const response = await $fetch<NotificationCountResponse>(
+      `/api/notifications/${appId}`,
+      {
+        method: 'GET',
+        // Optional: Add headers if needed, though user context is handled server-side
+      }
+    )
+    notificationCounts.value[appId] = response.count
+    if (response.error) {
+        console.warn(`Notification fetch for ${appId} completed with error: ${response.error}`)
+        // Optionally show a subtle indicator in UI if count is null due to error
+    }
+  } catch (error: any) {
+    console.error(`Failed to fetch notification count for ${appId}:`, error)
+    notificationCounts.value[appId] = null // Set to null on error
+    // Avoid noisy notifications for background fetches, log is sufficient
+  }
+}
+
+/**
+ * Iterates through all known AppLinks and fetches notification counts
+ * for those that have a defined `type`.
+ */
+async function fetchAllNotifications(): Promise<void> {
+  console.log('Fetching all notifications for supported apps...')
+  const promises: Promise<void>[] = []
+  allAppLinks.value.forEach((app) => {
+    // Only fetch for apps that have a type defined (indicating potential integration)
+    if (app.type) {
+      // For now, we only explicitly support 'vikunja', but fetch for any type defined
+      // In the future, might check against a list of supported types.
+       console.log(`Queueing notification fetch for ${app.id} (type: ${app.type})`)
+      promises.push(fetchNotificationCount(app.id))
+    }
+  })
+  await Promise.allSettled(promises) // Wait for all fetches to complete or fail
+  console.log('Finished fetching notifications.', notificationCounts.value)
+}
+
 // --- Type Guards ---
 
 /**
@@ -465,6 +585,25 @@ function isAppLink(item: NavigationItem): item is AppLink {
 }
 
 // --- Methods ---
+
+/**
+ * Opens the settings dialog for the specified app.
+ * @param {AppLink} app - The application link to configure.
+ */
+function openSettingsDialog(app: AppLink): void {
+  configuringApp.value = app
+  showSettingsDialog.value = true
+}
+
+/**
+ * Handles the event emitted when settings are saved in the dialog.
+ * Refetches the notification count for the affected app.
+ * @param {string} appId - The ID of the app whose settings were saved.
+ */
+function handleSettingsSaved(appId: string): void {
+  console.log(`Settings saved for ${appId}, refetching notifications...`)
+  fetchNotificationCount(appId) // Refetch count after saving API key
+}
 
 /**
  * Toggles the drawer mode between 'auto-hide' and 'always-open'.
@@ -852,7 +991,9 @@ watch(
     ) {
       // Update core state from config
       navigationItems.value = newConfig.navigationItems
-      userInfo.value = { userEmail: newConfig.userEmail, role: newConfig.role }
+      // Assign properties individually with explicit cast for userEmail
+      userInfo.value.userEmail = newConfig.userEmail as (string | null) // Explicit cast
+      userInfo.value.role = typeof newConfig.role === 'string' ? newConfig.role : 'Guest'
       defaultToolbarColor.value = newConfig.defaultToolbarColor || 'primary'
       keybindingsConfig.value = newConfig.keybindings || {}
 
@@ -891,6 +1032,9 @@ watch(
 
       // Ensure URL reflects the final initial state
       updateQueryParam()
+
+      // --- Fetch notifications AFTER config is loaded and processed ---
+      fetchAllNotifications() // Fetch counts for Vikunja etc.
     } else {
       // Handle config loading error
       console.error(

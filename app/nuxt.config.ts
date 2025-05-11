@@ -12,8 +12,11 @@ export default defineNuxtConfig({
       fontIcons: ['material-icons', 'mdi-v7'],
     },
     config: {
-      dark: 'auto',
+      dark: 'auto'
     },
+    plugins: [
+      'Notify'
+    ],
   },
 
   // Make package version available at runtime
