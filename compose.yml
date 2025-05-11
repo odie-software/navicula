@@ -3,6 +3,11 @@ services:
   navicula:
     image: ghcr.io/odie-software/navicula:latest
     container_name: navicula
+    environment:
+      - NUXT_PUBLIC_API_BASE_URL=http://navicula-api:8000/api
+
+  navicula-api:
+    image: ghcr.io/odie-software/navicula-api:latest
+    container_name: navicula-api
     volumes:
-      - ./config.yml:/app/config.yml # Mount config.yml
-      - ./users.yml:/app/users.yml   # Mount user settings
+      - ./config.yml:/app/config.yml
