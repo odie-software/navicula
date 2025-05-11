@@ -103,7 +103,6 @@ const emit = defineEmits<{
 
 // --- Composables ---
 const $q = useQuasar()
-const runtimeConf = useRuntimeConfig() // Added for apiBaseUrl
 
 // --- State ---
 const apiKey = ref<string>('') // Holds the API key input
@@ -135,7 +134,7 @@ async function saveSettings() {
     await $fetch(userSettingsApiUrl, {
       method: 'POST',
       body: {
-        // Only send relevant settings based on type
+      // Only send relevant settings based on type
         ...(props.appLink.type === 'vikunja' && { api_key: apiKey.value }),
         // Add other types here...
       },
