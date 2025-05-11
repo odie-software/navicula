@@ -4,8 +4,9 @@ from typing import List, Optional, Dict
 
 from config.services import ConfigService as AppConfigService, ConfigError as AppConfigError
 from config.schemas import AppLink # To get app_url and app_type
-from users.services import UserSettingsService, UserSettingsError
-from users.schemas import AppSpecificSetting # To get api_key
+# Removed UserSettingsService and UserSettingsError
+from users.models import UserApplicationSetting # Import the new Django model
+# Removed AppSpecificSetting from users.schemas
 from .schemas import NotificationCountResponse, ExternalNotificationItem # For response and parsing external data
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ class NotificationError(Exception):
 class NotificationService:
     def __init__(self):
         self.app_config_service = AppConfigService()
-        self.user_settings_service = UserSettingsService()
+        # Removed self.user_settings_service initialization
 
     def _find_app_link(self, app_id: str) -> Optional[AppLink]:
         """Finds an AppLink by its ID from the main configuration."""
@@ -41,15 +42,24 @@ class NotificationService:
             return None
 
     def _get_user_app_api_key(self, user_identifier: str, app_id: str) -> Optional[str]:
-        """Gets the API key for a specific app for a user."""
+        """Gets the API key for a specific app for a user from the database."""
         try:
-            user_app_settings = self.user_settings_service.get_settings_for_user(user_identifier)
-            if app_id in user_app_settings:
-                specific_app_settings: AppSpecificSetting = user_app_settings[app_id]
-                return specific_app_settings.api_key
+            user_app_setting = UserApplicationSetting.objects.get(
+                user_identifier=user_identifier,
+                app_id=app_id
+            )
+            # The 'settings' field is a JSONField, expected to be a dict.
+            # The api_key was previously stored directly under the app_id.
+            # e.g. users.yml: default: { app-vikunja: { api_key: "..." } }
+            # New model: UserApplicationSetting.settings = { "api_key": "..." }
+            if user_app_setting.settings and 'api_key' in user_app_setting.settings:
+                return user_app_setting.settings['api_key']
             return None
-        except UserSettingsError:
-            logger.error(f"Notifications: Could not load user settings for user {user_identifier}, app {app_id}.")
+        except UserApplicationSetting.DoesNotExist:
+            logger.info(f"Notifications: No specific settings found for user {user_identifier}, app {app_id}.")
+            return None
+        except Exception as e: # Catch other potential errors, e.g., DB connection
+            logger.error(f"Notifications: Error fetching user app settings for user {user_identifier}, app {app_id}: {e}")
             return None
 
     def _fetch_vikunja_notifications(self, app_url: str, api_key: str, user_identifier: str, app_id: str) -> NotificationCountResponse:
@@ -64,7 +74,7 @@ class NotificationService:
         try:
             with httpx.Client(timeout=5.0) as client:
                 response = client.get(api_url, headers=headers)
-            
+            print(response.status_code, response.text) # Debugging line to check response status and text
             if response.status_code == 401:
                 logger.warning(f"Notifications: Unauthorized access to Vikunja API ({app_id}) for user {user_identifier}. Check API key.")
                 return NotificationCountResponse(count=None, error="unauthorized")
@@ -81,7 +91,7 @@ class NotificationService:
             for raw_item in notifications_data:
                 try:
                     item = ExternalNotificationItem.model_validate(raw_item)
-                    if item.read_at is None:
+                    if item.read_at is None or item.read_at == "0001-01-01T00:00:00Z":
                         unread_count += 1
                 except Exception: # Pydantic ValidationError or other
                     logger.warning(f"Skipping invalid notification item from Vikunja: {raw_item}")

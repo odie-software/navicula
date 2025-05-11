@@ -4,21 +4,21 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 
-from .services import UserSettingsService, UserSettingsError
+from .models import UserApplicationSetting
+from .serializers import UserApplicationSettingSerializer, UserApplicationSettingUpdateSerializer
 from config.services import ConfigService as AppConfigService, ConfigError as AppConfigError
-# No specific Pydantic schemas from .schemas are directly used for request/response body here,
-# but the service uses them internally.
+from config.schemas import AppLink, NavCategory # Added import
 
 logger = logging.getLogger(__name__)
-DEFAULT_ROLE_FOR_USER_IDENT = 'Guest' # Fallback for user identification if needed, though not strictly for saving.
 
 class UserAppSettingsView(APIView):
     """
     API view to manage user-specific application settings.
-    Currently supports POST to update settings for a given app_id for the identified user.
+    Supports PUT to update/create settings for a given app_id for the identified user.
+    Supports GET to retrieve settings for a given app_id for the identified user.
+    Supports DELETE to remove settings for a given app_id for the identified user.
     """
-    user_settings_service = UserSettingsService()
-    app_config_service = AppConfigService() # To determine how to identify the user
+    app_config_service = AppConfigService()
 
     def _get_user_identifier(self, request: HttpRequest) -> str | None:
         """Helper to identify the user based on app configuration (remote auth or default)."""
@@ -26,8 +26,7 @@ class UserAppSettingsView(APIView):
             main_config = self.app_config_service.load_config()
         except AppConfigError:
             logger.error("Could not load main application config to identify user for settings update.")
-            # This is an internal error, as main config is needed for user identification logic
-            return None 
+            return None
 
         user_identifier = None
         if main_config.useRemoteAuth:
@@ -39,19 +38,59 @@ class UserAppSettingsView(APIView):
             if user_email_header:
                 user_identifier = user_email_header
         else:
-            # If not using remote auth, Nuxt logic used 'default' user.
-            # Check if 'default' user exists in main_config.users
             if main_config.users and 'default' in main_config.users:
-                 user_identifier = 'default'
-        
+                user_identifier = 'default'
         return user_identifier
+
+    def _validate_app_id(self, app_id: str) -> bool:
+        """Helper to validate app_id against main config."""
+        try:
+            main_config = self.app_config_service.load_config()
+            if not main_config or not hasattr(main_config, 'navigationItems'):
+                logger.error(f"Main config or navigationItems not found when validating app_id {app_id}.")
+                return False
+
+            for item_wrapper in main_config.navigationItems:
+                item = item_wrapper.root # Access the actual AppLink or NavCategory from NavigationItem
+                if isinstance(item, AppLink):
+                    if item.id == app_id:
+                        return True
+                elif isinstance(item, NavCategory):
+                    for app in item.apps:
+                        if app.id == app_id:
+                            return True
+            return False # app_id not found
+        except AppConfigError:
+            logger.error(f"Could not validate app_id {app_id} due to config service error.")
+            return False # Consider this as invalid if config can't be loaded
+        except Exception as e:
+            logger.error(f"Unexpected error during app_id validation for {app_id}: {e}")
+            return False
+
+    def get(self, request: HttpRequest, app_id: str, *args, **kwargs):
+        user_identifier = self._get_user_identifier(request)
+        if not user_identifier:
+            # Error handling similar to PUT/POST for consistency
+            return JsonResponse({'error': "User identification failed."}, status=status.HTTP_401_UNAUTHORIZED) # Or 500 if config error
+
+        if not self._validate_app_id(app_id):
+            return Response({'error': f"Application with app_id '{app_id}' not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            setting = UserApplicationSetting.objects.get(user_identifier=user_identifier, app_id=app_id)
+            serializer = UserApplicationSettingSerializer(setting)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except UserApplicationSetting.DoesNotExist:
+            return Response({'error': 'Settings not found for this user and application.'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Error retrieving settings for user {user_identifier}, app {app_id}: {e}")
+            return Response({'error': 'An unexpected server error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
     def post(self, request: HttpRequest, app_id: str, *args, **kwargs):
         user_identifier = self._get_user_identifier(request)
 
         if not user_identifier:
-            # This implies an issue with either main config loading or user identification logic
-            # based on useRemoteAuth settings.
             main_config_loaded = True
             try:
                 main_config = self.app_config_service.load_config()
@@ -61,48 +100,62 @@ class UserAppSettingsView(APIView):
             if not main_config_loaded:
                  error_msg = "Forbidden: Cannot identify user due to main configuration error."
                  return JsonResponse({'error': error_msg}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            elif main_config.useRemoteAuth:
+            elif hasattr(main_config, 'useRemoteAuth') and main_config.useRemoteAuth: # Check if main_config was loaded
                 error_msg = "Unauthorized: User identification failed (Remote auth header missing or invalid)."
                 return JsonResponse({'error': error_msg}, status=status.HTTP_401_UNAUTHORIZED)
-            else: # Not useRemoteAuth, and 'default' user was not found/configured
-                error_msg = "Forbidden: Default user not configured for non-remote authentication mode."
+            else: 
+                error_msg = "Forbidden: Default user not configured or user identification failed for non-remote authentication mode."
                 return JsonResponse({'error': error_msg}, status=status.HTTP_403_FORBIDDEN)
 
-        # --- Read Request Body ---
-        # The Nuxt version expected body.api_key (string, or empty string to clear)
-        # For DRF APIView, request.data will contain the parsed body
-        request_data = request.data
-        if not isinstance(request_data, dict):
-            return JsonResponse({'error': 'Invalid request body: Expected a JSON object.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not self._validate_app_id(app_id):
+            return Response({'error': f"Application with app_id '{app_id}' not found in system configuration."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Validate expected settings, e.g., api_key.
-        # The Nuxt code checked: if typeof body.api_key !== 'string' (allow empty string)
-        # This means api_key must be present. If it can be optional, logic changes.
-        # For now, let's assume api_key is expected.
-        if 'api_key' not in request_data:
-            return JsonResponse({'error': "Bad Request: 'api_key' missing in request body."}, status=status.HTTP_400_BAD_REQUEST)
+        request_data_settings = request.data 
+        # The UserApplicationSettingUpdateSerializer expects a dict with a 'settings' key
+        # The old code expected request.data = {'api_key': 'value'}
+        # We need to ensure the data passed to the serializer is {'settings': {'api_key': 'value', ...}}
         
-        api_key_value = request_data['api_key']
-        if not isinstance(api_key_value, str):
-             # Allow empty string, but it must be a string
-            return JsonResponse({'error': "Bad Request: 'api_key' must be a string."}, status=status.HTTP_400_BAD_REQUEST)
-
-        app_settings_to_save = {'api_key': api_key_value}
-        # If other settings were allowed, they would be extracted from request_data here.
+        # For now, let's assume the request body IS the content of the 'settings' field.
+        # e.g. PUT body: {"api_key": "new_key", "another_setting": "value"}
+        # This matches the spirit of the old UserSettingsService.save_app_settings_for_user's new_app_settings_data
+        
+        data_for_serializer = {'settings': request_data_settings}
 
         try:
-            self.user_settings_service.save_app_settings_for_user(
+            setting, created = UserApplicationSetting.objects.get_or_create(
                 user_identifier=user_identifier,
                 app_id=app_id,
-                new_app_settings_data=app_settings_to_save 
+                defaults={'settings': {}} # Default settings if creating
             )
-            return Response(
-                {'success': True, 'message': f'Settings for {app_id} saved successfully for user {user_identifier}.'},
-                status=status.HTTP_200_OK
-            )
-        except UserSettingsError as e:
-            logger.error(f"Error saving user settings for {user_identifier}, app {app_id}: {e}")
-            return JsonResponse({'error': str(e)}, status=e.status_code)
+            
+            # Use UserApplicationSettingUpdateSerializer for partial updates to the 'settings' field
+            serializer = UserApplicationSettingUpdateSerializer(setting, data=data_for_serializer, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                # For the response, serialize the full object to show current state
+                full_serializer = UserApplicationSettingSerializer(setting)
+                return Response(full_serializer.data, status=status.HTTP_200_OK if not created else status.HTTP_201_CREATED)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         except Exception as e:
-            logger.error(f"Unexpected error saving settings for {user_identifier}, app {app_id}: {e}")
-            return JsonResponse({'error': 'An unexpected server error occurred while saving settings.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.error(f"Unexpected error saving settings for user {user_identifier}, app {app_id}: {e}")
+            return Response({'error': 'An unexpected server error occurred while saving settings.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def delete(self, request: HttpRequest, app_id: str, *args, **kwargs):
+        user_identifier = self._get_user_identifier(request)
+        if not user_identifier:
+            return JsonResponse({'error': "User identification failed."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if not self._validate_app_id(app_id):
+            return Response({'error': f"Application with app_id '{app_id}' not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            setting = UserApplicationSetting.objects.get(user_identifier=user_identifier, app_id=app_id)
+            setting.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except UserApplicationSetting.DoesNotExist:
+            return Response({'error': 'Settings not found for this user and application.'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Error deleting settings for user {user_identifier}, app {app_id}: {e}")
+            return Response({'error': 'An unexpected server error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

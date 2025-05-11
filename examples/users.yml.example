@@ -1,3 +1,0 @@
-default: # User identifier (e.g., 'default' for local mode, or email like 'user@example.com' for remote auth)
-  app-vikunja: # The ID of the application (matches app.id in config.yml)
-    api_key: "..." # Example setting for Vikunja
